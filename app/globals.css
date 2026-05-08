@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn CSS variable bridge — mapped to our design tokens */
+    --background: 0 0% 100%;
+    --foreground: 240 6% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 12%;
+    --primary: 211 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 12%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 211 100% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 84%;
+    --input: 240 6% 84%;
+    --ring: 211 100% 45%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-fog text-ink font-sans;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  }
+}
+
+@layer components {
+  /* ─── Layout ─── */
+  .container-x {
+    @apply mx-auto w-full max-w-[1024px] px-6;
+  }
+
+  .container-wide {
+    @apply mx-auto w-full max-w-[1440px] px-8;
+  }
+
+  /* ─── Typography ─── */
+  .eyebrow {
+    @apply font-sans text-[11px] font-semibold uppercase tracking-widest text-graphite;
+  }
+
+  .display-xl {
+    @apply font-display text-[56px] font-semibold leading-[1.05] tracking-tightest text-ink;
+  }
+
+  .display-lg {
+    @apply font-display text-[40px] font-semibold leading-[1.08] tracking-tighter text-ink;
+  }
+
+  .display-md {
+    @apply font-display text-[28px] font-semibold leading-[1.12] tracking-tight text-ink;
+  }
+
+  .display-sm {
+    @apply font-display text-[21px] font-semibold leading-[1.18] tracking-tight text-ink;
+  }
+
+  .subhead {
+    @apply font-sans text-[17px] font-normal leading-[1.55] tracking-tight text-graphite;
+  }
+
+  .hairline {
+    @apply border-t border-hairline;
+  }
+
+  /* ─── Links ─── */
+  .applelink {
+    @apply font-sans text-[14px] font-normal text-accent underline-offset-2 transition-colors duration-150 hover:text-accent-hover;
+  }
+
+  .applelink-lg {
+    @apply font-sans text-[17px] font-normal text-accent underline-offset-2 transition-colors duration-150 hover:text-accent-hover;
+  }
+
+  /* ─── Card surfaces ─── */
+  .card-surface {
+    @apply rounded-apple bg-paper shadow-card transition-shadow duration-300 hover:shadow-card-hover;
+  }
+
+  .card-mist {
+    @apply rounded-apple bg-mist shadow-none transition-shadow duration-300 hover:shadow-card;
+  }
+
+  /* ─── Form inputs ─── */
+  .input-base {
+    @apply h-12 w-full rounded-xl border border-hairline bg-paper px-4 font-sans text-[15px] text-ink placeholder:text-graphite-light
+           focus:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/20
+           disabled:cursor-not-allowed disabled:opacity-50
+           transition-colors duration-150;
+  }
+
+  /* ─── Admin-specific ─── */
+  .admin-sidebar-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-graphite
+           transition-colors duration-150
+           hover:bg-mist hover:text-ink;
+  }
+
+  .admin-sidebar-link-active {
+    @apply bg-mist text-ink;
+  }
+
+  .admin-page-title {
+    @apply font-display text-[22px] font-semibold leading-tight tracking-tight text-ink;
+  }
+
+  .admin-section-label {
+    @apply font-sans text-[11px] font-semibold uppercase tracking-widest text-graphite-light;
+  }
+
+  /* ─── Status badges ─── */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  .badge-applied    { @apply badge bg-blue-50 text-blue-700; }
+  .badge-contacted  { @apply badge bg-yellow-50 text-yellow-700; }
+  .badge-qualified  { @apply badge bg-purple-50 text-purple-700; }
+  .badge-approved   { @apply badge bg-green-50 text-green-700; }
+  .badge-active     { @apply badge bg-emerald-50 text-emerald-700; }
+  .badge-rejected   { @apply badge bg-red-50 text-red-700; }
+  .badge-inactive   { @apply badge bg-gray-100 text-gray-500; }
+}
