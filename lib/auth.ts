@@ -5,11 +5,27 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import type { Role } from '@/db/schema'
 
-// ─── Session ──────────────────────────────────────────────────────────────────
+// ─── User ─────────────────────────────────────────────────────────────────────
 
 /**
- * Returns the current Supabase session, or null if unauthenticated.
- * Safe to call from Server Components and Server Actions.
+ * Returns the authenticated user from Supabase Auth server.
+ * Uses getUser() — contacts the Auth server to verify the JWT.
+ * More secure than getSession() which only reads from cookies.
+ */
+export async function getUser() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  if (error || !user) return null
+  return user
+}
+
+/**
+ * @deprecated Use getUser() instead.
+ * Kept for any callers that need the full session object (e.g. refresh token).
  */
 export async function getSession() {
   const supabase = await createClient()
@@ -30,16 +46,15 @@ export async function getSession() {
 
 /**
  * Returns the current user's profile row from the `profiles` table.
- * This is the source of truth for role — never use JWT claims for authz.
- * Returns null if not authenticated or profile not found.
+ * Role is read from the DB — never from JWT claims.
  */
 export async function getProfile() {
-  const session = await getSession()
-  if (!session) return null
+  const user = await getUser()
+  if (!user) return null
 
   try {
     const profile = await db.query.profiles.findFirst({
-      where: eq(profiles.id, session.user.id),
+      where: eq(profiles.id, user.id),
     })
     return profile ?? null
   } catch (err) {
@@ -56,24 +71,20 @@ export async function getProfile() {
  *
  * - Redirects to /login if not authenticated
  * - Redirects to /unauthorized if authenticated but wrong role
- *
- * @example
- * const profile = await requireRole(['super_admin', 'agent_manager'])
  */
 export async function requireRole(
   allowedRoles: Role[],
   options: { redirectTo?: string } = {}
 ) {
-  const session = await getSession()
+  const user = await getUser()
 
-  if (!session) {
+  if (!user) {
     redirect(options.redirectTo ?? '/login')
   }
 
   const profile = await getProfile()
 
   if (!profile) {
-    // Authenticated but no profile row — likely a new user pending setup
     redirect('/login')
   }
 
@@ -90,7 +101,6 @@ export async function requireRole(
 
 /**
  * Asserts agent authentication for portal routes.
- * Agent must be role=agent and status=active.
  */
 export async function requireAgent(options: { redirectTo?: string } = {}) {
   return requireRole(['agent'], options)
@@ -98,8 +108,6 @@ export async function requireAgent(options: { redirectTo?: string } = {}) {
 
 /**
  * Returns the current profile without redirecting.
- * Use this when you want to conditionally render based on role
- * without hard-gating the route.
  */
 export async function getProfileOrNull() {
   try {

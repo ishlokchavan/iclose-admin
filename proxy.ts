@@ -49,10 +49,8 @@ function applySecurityHeaders(
     `upgrade-insecure-requests`,
   ].join('; ')
 
-  // Content Security Policy
   response.headers.set('Content-Security-Policy', csp)
 
-  // HSTS — only in production
   if (isProd) {
     response.headers.set(
       'Strict-Transport-Security',
@@ -60,32 +58,23 @@ function applySecurityHeaders(
     )
   }
 
-  // Clickjacking protection
   response.headers.set('X-Frame-Options', 'DENY')
-
-  // MIME sniffing protection
   response.headers.set('X-Content-Type-Options', 'nosniff')
-
-  // Referrer policy
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-
-  // Permissions policy — restrict sensitive APIs
   response.headers.set(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()'
   )
-
-  // Pass nonce to downstream rendering
   response.headers.set('x-nonce', nonce)
 
   return response
 }
 
-// ─── Login throttling (simple in-memory counter — upgrade to Redis in Phase 4) ──
+// ─── Login throttling ─────────────────────────────────────────────────────────
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
 const LOGIN_LIMIT = 5
-const LOGIN_WINDOW_MS = 15 * 60 * 1000 // 15 minutes
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
 function checkLoginThrottle(ip: string): boolean {
   const now = Date.now()
@@ -93,15 +82,12 @@ function checkLoginThrottle(ip: string): boolean {
 
   if (!entry || entry.resetAt < now) {
     loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
-    return true // allowed
+    return true
   }
 
-  if (entry.count >= LOGIN_LIMIT) {
-    return false // blocked
-  }
-
+  if (entry.count >= LOGIN_LIMIT) return false
   entry.count++
-  return true // allowed
+  return true
 }
 
 // ─── Main proxy function ──────────────────────────────────────────────────────
@@ -111,7 +97,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const isProd = process.env.NODE_ENV === 'production'
   const nonce = generateNonce()
 
-  // Force HTTPS redirect in production
+  // Force HTTPS in production
   if (isProd && request.headers.get('x-forwarded-proto') === 'http') {
     const httpsUrl = request.nextUrl.clone()
     httpsUrl.protocol = 'https:'
@@ -133,26 +119,25 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Pass public API routes through without session check
+  // Pass public routes through
   if (isPublicApi(pathname)) {
     const response = NextResponse.next()
     return applySecurityHeaders(response, nonce, isProd)
   }
 
-  // Create a mutable response for session cookie propagation
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
 
-  // Refresh the Supabase session — this is the primary purpose of this proxy
+  // Refresh session cookie — primary purpose of this proxy
   const { supabase } = createProxyClient(request, response)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+
+  // getUser() contacts the Auth server — more secure than getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Gate admin routes
   if (isProtectedAdmin(pathname)) {
-    if (!session) {
+    if (!user) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('next', pathname)
@@ -162,26 +147,25 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   // Gate agent portal routes
   if (isProtectedAgent(pathname)) {
-    if (!session) {
+    if (!user) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('next', pathname)
       return NextResponse.redirect(loginUrl)
     }
-    // Phase 1: add role check — reject non-agent roles here
   }
 
-  // Redirect logged-in users away from login page
-  if (session && (pathname === '/login' || pathname === '/forgot-password')) {
+  // Redirect logged-in users away from login/forgot-password
+  if (user && (pathname === '/login' || pathname === '/forgot-password')) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/dashboard'
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Redirect root to dashboard
+  // Redirect root
   if (pathname === '/') {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = session ? '/dashboard' : '/login'
+    redirectUrl.pathname = user ? '/dashboard' : '/login'
     return NextResponse.redirect(redirectUrl)
   }
 
@@ -189,17 +173,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   return response
 }
 
-// ─── Matcher config (exported for middleware.ts) ───────────────────────────────
+// ─── Matcher config ───────────────────────────────────────────────────────────
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder files
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
