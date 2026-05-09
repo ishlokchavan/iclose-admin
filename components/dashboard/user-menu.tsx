@@ -63,7 +63,7 @@ export default function UserMenu({ profile }: UserMenuProps) {
       </div>
 
       {/* Sign out */}
-      <button
+      {/* <button
         onClick={handleSignOut}
         disabled={isPending}
         className={cn(
@@ -76,7 +76,7 @@ export default function UserMenu({ profile }: UserMenuProps) {
         title="Sign out"
       >
         <LogOut className="h-4 w-4" aria-hidden />
-      </button>
+      </button> */}
     </div>
   )
 }
