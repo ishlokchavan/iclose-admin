@@ -1,30 +1,70 @@
 import type { Metadata } from 'next'
 import { requireRole } from '@/lib/auth'
-import { FileText } from 'lucide-react'
+import { getSiteConfig, getPlansForCms, getFaqs, getFormSchema } from '@/lib/actions/cms'
+import { Suspense } from 'react'
+import SiteConfigForm from './site-config-form'
+import PlansEditor from './plans-editor'
+import FaqsEditor from './faqs-editor'
+import FormSchemaEditor from './form-schema-editor'
+import MediaLibrary from './media-library'
 
 export const metadata: Metadata = { title: 'CMS' }
 
-export default async function CmsPage() {
-  await requireRole(['super_admin', 'content_manager', 'auditor'])
+function Tab({ id, label, active }: { id: string; label: string; active: boolean }) {
   return (
-    <div className="flex flex-col gap-8">
+    <a href={`?tab=${id}`}
+      className={`px-4 py-2 text-[13px] font-medium rounded-lg transition-colors ${
+        active ? 'bg-ink text-white' : 'text-graphite hover:bg-mist hover:text-ink'
+      }`}>
+      {label}
+    </a>
+  )
+}
+
+export default async function CmsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  await requireRole(['super_admin', 'content_manager'])
+  const { tab = 'site' } = await searchParams
+
+  const [siteConfig, plans, faqs, formSchema] = await Promise.all([
+    getSiteConfig(),
+    getPlansForCms(),
+    getFaqs(),
+    getFormSchema(),
+  ])
+
+  const tabs = [
+    { id: 'site', label: 'Site Config' },
+    { id: 'plans', label: 'Plans' },
+    { id: 'faqs', label: 'FAQs' },
+    { id: 'form', label: 'Registration Form' },
+    { id: 'media', label: 'Media' },
+  ]
+
+  return (
+    <div className="flex flex-col gap-6">
       <div>
         <p className="eyebrow mb-2">Content</p>
         <h1 className="admin-page-title">CMS</h1>
-        <p className="mt-1 text-[14px] text-graphite">Edit site content, sections, FAQs, plans, media library, and form schemas.</p>
+        <p className="mt-1 text-[14px] text-graphite">Edit site content, plans, FAQs, and form fields.</p>
       </div>
-      <div className="card-surface flex flex-col items-center gap-4 py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mist">
-          <FileText className="h-6 w-6 text-graphite-light" />
-        </div>
-        <div>
-          <p className="font-display text-[17px] font-semibold text-ink">Coming in Phase 6</p>
-          <p className="mt-1 max-w-sm text-[14px] text-graphite">Schema-driven section editors, media library, FAQs, plans, form schema editor, and public CMS API.</p>
-        </div>
-        <div className="mt-2 rounded-xl border border-accent/20 bg-accent/5 px-5 py-3">
-          <p className="text-[13px] font-medium text-accent">Phase 6 — Full CMS + /api/cms/* endpoints</p>
-        </div>
+
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 rounded-xl bg-mist p-1 w-fit">
+        {tabs.map((t) => <Tab key={t.id} {...t} active={tab === t.id} />)}
       </div>
+
+      {/* Tab content */}
+      <Suspense fallback={<div className="card-surface h-64 animate-pulse rounded-xl bg-mist/50" />}>
+        {tab === 'site' && <SiteConfigForm config={siteConfig} />}
+        {tab === 'plans' && <PlansEditor plans={plans} />}
+        {tab === 'faqs' && <FaqsEditor faqs={faqs} />}
+        {tab === 'form' && <FormSchemaEditor schema={formSchema} />}
+        {tab === 'media' && <MediaLibrary />}
+      </Suspense>
     </div>
   )
 }
