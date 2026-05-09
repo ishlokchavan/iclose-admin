@@ -6,7 +6,6 @@ import SiteConfigForm from './site-config-form'
 import PlansEditor from './plans-editor'
 import FaqsEditor from './faqs-editor'
 import FormSchemaEditor from './form-schema-editor'
-import MediaLibrary from './media-library'
 
 export const metadata: Metadata = { title: 'CMS' }
 
@@ -41,8 +40,7 @@ export default async function CmsPage({
     { id: 'plans', label: 'Plans' },
     { id: 'faqs', label: 'FAQs' },
     { id: 'form', label: 'Registration Form' },
-    { id: 'media', label: 'Media' },
-  ]
+    ]
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,7 +61,6 @@ export default async function CmsPage({
         {tab === 'plans' && <PlansEditor plans={plans} />}
         {tab === 'faqs' && <FaqsEditor faqs={faqs} />}
         {tab === 'form' && <FormSchemaEditor schema={formSchema} />}
-        {tab === 'media' && <MediaLibrary />}
       </Suspense>
     </div>
   )

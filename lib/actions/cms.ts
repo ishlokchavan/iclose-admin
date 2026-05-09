@@ -184,22 +184,3 @@ export async function saveFormSchema(slug: string, fields: unknown[]) {
   revalidatePath('/dashboard/cms')
   return { ok: true as const }
 }
-
-// ─── Media ────────────────────────────────────────────────────────────────────
-
-export async function getMediaFiles() {
-  await requireRole(['super_admin', 'content_manager'])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (sb() as any).from('cms_media').select('*').order('created_at', { ascending: false }).limit(50)
-  return data ?? []
-}
-
-export async function deleteMediaFile(id: string, storagePath: string) {
-  await requireRole(['super_admin', 'content_manager'])
-  const supabase = sb()
-  await supabase.storage.from('cms-media').remove([storagePath])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('cms_media').delete().eq('id', id)
-  revalidatePath('/dashboard/cms')
-  return { ok: true as const }
-}
