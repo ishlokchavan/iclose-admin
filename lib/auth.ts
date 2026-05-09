@@ -129,13 +129,16 @@ export async function requireRole(
   // Default to agent if still unknown
   role = role ?? 'agent'
 
+  const ROLE_HOME: Record<string, string> = {
+    super_admin: '/dashboard',
+    agent_manager: '/dashboard',
+    content_manager: '/dashboard/cms',
+    auditor: '/dashboard/audit',
+    agent: '/portal',
+  }
+
   if (!allowedRoles.includes(role)) {
-    // Smart redirect based on actual role
-    if (role === 'agent') redirect('/portal')
-    if (role === 'content_manager') redirect('/dashboard/cms')
-    if (role === 'auditor') redirect('/dashboard/audit')
-    if (['super_admin','agent_manager'].includes(role)) redirect('/dashboard')
-    redirect('/unauthorized')
+    redirect(ROLE_HOME[role] ?? '/dashboard')
   }
 
   return {
