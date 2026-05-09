@@ -36,7 +36,7 @@ function applySecurityHeaders(
 ): NextResponse {
   const csp = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' ${!isProd ? "'unsafe-eval'" : ''} https://www.googletagmanager.com https://connect.facebook.net https://challenges.cloudflare.com`,
+    `script-src 'self' 'nonce-${nonce}' ${!isProd ? "'unsafe-eval'" : "'unsafe-inline'"} https://www.googletagmanager.com https://connect.facebook.net https://challenges.cloudflare.com`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: https: blob:`,
     `font-src 'self' data:`,
