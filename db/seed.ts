@@ -16,6 +16,13 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { profiles } from './schema'
 import * as dotenv from 'dotenv'
 
+// Polyfill WebSocket for Node 20 (supabase-js requires it even for admin-only scripts)
+import { WebSocket as WS } from 'ws'
+if (!globalThis.WebSocket) {
+  // @ts-expect-error — polyfill for Node 20
+  globalThis.WebSocket = WS
+}
+
 dotenv.config({ path: '.env.local' })
 
 const required = [
@@ -38,7 +45,10 @@ async function seed() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
+    {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { fetch: fetch },
+    }
   )
 
   const email = process.env.SEED_ADMIN_EMAIL!
