@@ -26,7 +26,7 @@ export default async function DealsPage({
     getDealStats(),
     canCreate ? db.query.agents.findMany({
       where: eq(agents.applicationStatus, 'active'),
-      columns: { id: true, fullName: true },
+      columns: { id: true, fullName: true, isLicensedAgent: true },
       orderBy: (a, { asc }) => [asc(a.fullName)],
     }) : Promise.resolve([]),
   ])

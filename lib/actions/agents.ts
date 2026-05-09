@@ -412,3 +412,58 @@ export async function createAgentByAdmin(formData: FormData) {
   revalidatePath('/dashboard/agents')
   return { ok: true as const, agentId: newAgent.id }
 }
+
+// ─── Search agents for deal assignment (searches name + decrypted email/phone) ─
+
+export async function searchAgentsForDeal(query: string) {
+  await requireRole(['super_admin', 'agent_manager'])
+
+  if (!query || query.trim().length < 2) {
+    // Return all active agents if no query
+    return db.query.agents.findMany({
+      where: eq(agents.applicationStatus, 'active'),
+      columns: { id: true, fullName: true, phoneEncrypted: true, emailEncrypted: true, isLicensedAgent: true },
+      orderBy: [agents.fullName],
+      limit: 20,
+    })
+  }
+
+  const q = query.trim().toLowerCase()
+
+  // Fetch active agents and filter in JS (since email/phone are encrypted)
+  const allActive = await db.query.agents.findMany({
+    where: eq(agents.applicationStatus, 'active'),
+    columns: { id: true, fullName: true, phoneEncrypted: true, emailEncrypted: true, isLicensedAgent: true },
+    orderBy: [agents.fullName],
+    limit: 100,
+  })
+
+  const { decrypt } = await import('@/lib/encryption')
+
+  const results = await Promise.all(
+    allActive.map(async (agent) => {
+      // Always match on name
+      if (agent.fullName.toLowerCase().includes(q)) return agent
+
+      // Try decrypting email
+      if (agent.emailEncrypted) {
+        try {
+          const email = await decrypt(agent.emailEncrypted)
+          if (email.toLowerCase().includes(q)) return agent
+        } catch { /* skip */ }
+      }
+
+      // Try decrypting phone
+      if (agent.phoneEncrypted) {
+        try {
+          const phone = await decrypt(agent.phoneEncrypted)
+          if (phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))) return agent
+        } catch { /* skip */ }
+      }
+
+      return null
+    })
+  )
+
+  return results.filter(Boolean) as typeof allActive
+}
