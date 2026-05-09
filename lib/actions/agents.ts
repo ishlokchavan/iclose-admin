@@ -315,3 +315,88 @@ export async function getAgentManagers() {
     orderBy: [profiles.fullName],
   })
 }
+
+// ─── Create agent by admin ────────────────────────────────────────────────────
+
+const createAgentSchema = z.object({
+  fullName: z.string().min(2).max(128),
+  email: z.string().email(),
+  phone: z.string().min(7).max(32),
+  isLicensedAgent: z.enum(['true', 'false']).transform((v) => v === 'true'),
+  dealVolume: z.enum(['0-1', '1-3', '3-5', '5-10', '10+']).optional(),
+  initialStatus: z.enum(['applied', 'contacted', 'qualified', 'approved', 'active']).default('applied'),
+  source: z.string().max(128).optional(),
+})
+
+export async function createAgentByAdmin(formData: FormData) {
+  const profile = await requireRole(['super_admin', 'agent_manager'])
+
+  const parsed = createAgentSchema.safeParse({
+    fullName: formData.get('fullName'),
+    email: formData.get('email'),
+    phone: formData.get('phone'),
+    isLicensedAgent: formData.get('isLicensedAgent'),
+    dealVolume: formData.get('dealVolume') || undefined,
+    initialStatus: formData.get('initialStatus'),
+    source: formData.get('source') || undefined,
+  })
+
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
+  }
+
+  const { fullName, email, phone, isLicensedAgent, dealVolume, initialStatus, source } = parsed.data
+
+  const { encrypt: encryptFn, hashPii: hashPiiFn } = await import('@/lib/encryption')
+  const [phoneEncrypted, emailEncrypted] = await Promise.all([
+    encryptFn(phone),
+    encryptFn(email),
+  ])
+
+  const [newAgent] = await db.insert(agents).values({
+    fullName,
+    phoneEncrypted,
+    emailEncrypted,
+    isLicensedAgent,
+    dealVolume,
+    applicationStatus: initialStatus,
+    source,
+    assignedTo: profile.id,
+  }).returning({ id: agents.id })
+
+  if (!newAgent) return { ok: false as const, error: 'Failed to create agent' }
+
+  // If created as active or approved, create auth account and link profile
+  if (initialStatus === 'active' || initialStatus === 'approved') {
+    const supabase = await createClient()
+    const { data: inviteData, error: inviteError } =
+      await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/update-password`,
+        data: { full_name: fullName, role: 'agent' },
+      })
+
+    if (!inviteError && inviteData.user) {
+      await db.insert(profiles).values({
+        id: inviteData.user.id,
+        fullName,
+        role: 'agent',
+        status: 'active',
+      }).onConflictDoNothing()
+
+      await db.update(agents)
+        .set({ profileId: inviteData.user.id })
+        .where(eq(agents.id, newAgent.id))
+    }
+  }
+
+  await writeAudit({
+    actorId: profile.id,
+    action: 'agent.created_by_admin',
+    entity: 'agents',
+    entityId: newAgent.id,
+    after: { fullName, isLicensedAgent, initialStatus, source },
+  })
+
+  revalidatePath('/dashboard/agents')
+  return { ok: true as const, agentId: newAgent.id }
+}
