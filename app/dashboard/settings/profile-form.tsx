@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
-import { revalidatePath } from 'next/cache'
 
 export default function ProfileForm({ currentName, userId }: { currentName: string; userId: string }) {
   const [isPending, startTransition] = useTransition()
