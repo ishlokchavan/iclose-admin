@@ -92,7 +92,7 @@ export default function UserRow({
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-hairline bg-paper shadow-elevated">
                 <button
-                  onClick={() => act(() => resendInvite(user.email))}
+                  onClick={() => act(() => resendInvite(user.email, user.full_name, user.role))}
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-ink hover:bg-mist"
                 >
                   <RefreshCw className="h-4 w-4 text-graphite" /> Resend invite

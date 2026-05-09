@@ -148,17 +148,18 @@ export async function resetPassword(formData: FormData): Promise<AuthResult> {
     return { ok: false, error: parsed.error.errors[0].message }
   }
 
-  const supabase = await createClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(
-    parsed.data.email,
-    {
-      redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/update-password`,
-    }
-  )
+  // Use our custom email via Resend instead of Supabase's rate-limited email
+  const { sendPasswordReset } = await import('@/lib/email')
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const sb = createServiceClient()
 
-  if (error) {
-    return { ok: false, error: 'Failed to send reset email. Please try again.' }
-  }
+  // Look up the user's name (best effort)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: authData } = await (sb.auth.admin as any).listUsers({ perPage: 1000 })
+  const user = (authData?.users ?? []).find((u: {email?: string}) => u.email === parsed.data.email)
+  const name = user?.user_metadata?.full_name ?? parsed.data.email.split('@')[0]
+
+  await sendPasswordReset({ recipientEmail: parsed.data.email, recipientName: name })
 
   // Always return ok — don't reveal whether email exists
   return { ok: true }

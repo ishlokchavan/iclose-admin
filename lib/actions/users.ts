@@ -55,19 +55,34 @@ export async function inviteAdminUser(formData: FormData) {
 
   const { email, fullName, role } = parsed.data
 
-  // Invite via Supabase Auth
-  const { data, error } = await sb().auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`,
-    data: { full_name: fullName },
-  })
+  // Create user without triggering Supabase's rate-limited email
+  // generateLink creates the user + token; we send our own branded email via Resend
+  const { sendAdminInvite } = await import('@/lib/email')
 
-  if (error || !data.user) return { ok: false as const, error: error?.message ?? 'Failed to send invite' }
+  // First check if user already exists
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (sb().auth.admin as any).listUsers({ perPage: 1000 })
+  const existingUser = (existing?.users ?? []).find((u: {email?: string}) => u.email === email)
 
-  const userId = data.user.id
+  let userId: string
+
+  if (existingUser) {
+    userId = existingUser.id
+  } else {
+    // Create user via generateLink (no email sent by Supabase)
+    const { data: linkData, error: linkError } = await sb().auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`, data: { full_name: fullName } },
+    })
+    if (linkError || !linkData?.user) return { ok: false as const, error: linkError?.message ?? 'Failed to create user' }
+    userId = linkData.user.id
+  }
 
   // Set app_metadata role for JWT-based fast auth
   await sb().auth.admin.updateUserById(userId, {
     app_metadata: { role },
+    user_metadata: { full_name: fullName },
   })
 
   // Create profile
@@ -78,6 +93,15 @@ export async function inviteAdminUser(formData: FormData) {
     role,
     status: 'active',
   }, { onConflict: 'id' })
+
+  // Send branded invite email via Resend (no Supabase rate limits)
+  const emailResult = await sendAdminInvite({
+    recipientEmail: email,
+    recipientName: fullName,
+    inviterName: actor.fullName,
+    role,
+  })
+  if (!emailResult.ok) console.warn('[users] Invite email failed:', emailResult.error)
 
   await writeAudit({
     actorId: actor.id,
@@ -170,11 +194,15 @@ export async function deleteAdminUser(userId: string) {
 
 // ─── Resend invite ────────────────────────────────────────────────────────────
 
-export async function resendInvite(email: string) {
-  await requireRole(['super_admin'])
-  const { error } = await sb().auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`,
+export async function resendInvite(email: string, recipientName: string, role: string) {
+  const actor = await requireRole(['super_admin'])
+  const { sendAdminInvite } = await import('@/lib/email')
+  const result = await sendAdminInvite({
+    recipientEmail: email,
+    recipientName,
+    inviterName: actor.fullName,
+    role,
   })
-  if (error) return { ok: false as const, error: error.message }
+  if (!result.ok) return { ok: false as const, error: result.error }
   return { ok: true as const }
 }
