@@ -40,7 +40,7 @@ function KpiCard({ label, value, icon: Icon, href, accent }: {
 }
 
 export default async function DashboardPage() {
-  const profile = await requireRole(['super_admin', 'content_manager', 'agent_manager', 'auditor'])
+  const profile = await requireRole(['super_admin', 'agent_manager'])
   const supabase = await createClient()
 
   // All queries via Supabase JS (HTTPS) — works on Vercel serverless

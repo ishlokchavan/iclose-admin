@@ -22,7 +22,9 @@ export default async function AuthRedirectPage() {
   }
 
   if (role === 'agent') redirect('/portal')
-  if (role && ['super_admin','agent_manager','content_manager','auditor'].includes(role)) redirect('/dashboard')
+  if (role === 'content_manager') redirect('/dashboard/cms')
+  if (role === 'auditor') redirect('/dashboard/audit')
+  if (role && ['super_admin','agent_manager'].includes(role)) redirect('/dashboard')
 
   // No profile yet — redirect to dashboard as fallback
   redirect('/dashboard')

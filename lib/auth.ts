@@ -132,7 +132,9 @@ export async function requireRole(
   if (!allowedRoles.includes(role)) {
     // Smart redirect based on actual role
     if (role === 'agent') redirect('/portal')
-    if (['super_admin','agent_manager','content_manager','auditor'].includes(role)) redirect('/dashboard')
+    if (role === 'content_manager') redirect('/dashboard/cms')
+    if (role === 'auditor') redirect('/dashboard/audit')
+    if (['super_admin','agent_manager'].includes(role)) redirect('/dashboard')
     redirect('/unauthorized')
   }
 
