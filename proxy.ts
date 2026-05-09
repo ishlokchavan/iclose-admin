@@ -5,7 +5,7 @@ import { createProxyClient } from '@/lib/supabase/proxy'
 
 const PROTECTED_ADMIN_ROUTES = ['/dashboard']
 const PROTECTED_AGENT_ROUTES = ['/portal']
-const PUBLIC_ROUTES = ['/login', '/forgot-password', '/api/agent', '/api/cms']
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/api/agent', '/api/cms', '/auth']
 
 function isProtectedAdmin(pathname: string) {
   return PROTECTED_ADMIN_ROUTES.some((r) => pathname.startsWith(r))
@@ -143,14 +143,13 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // Redirect logged-in users away from login/forgot-password
-  // Note: we can't check role here without a DB call — redirect to / and let it resolve
   if (user && (pathname === '/login' || pathname === '/forgot-password')) {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/'
+    redirectUrl.pathname = '/auth/redirect'
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Redirect root — proxy can't check role (no DB), send to a resolver page
+  // Redirect root
   if (pathname === '/') {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = user ? '/auth/redirect' : '/login'
