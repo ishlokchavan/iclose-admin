@@ -1,7 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/db/client'
-import { profiles } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import type { Role } from '@/db/schema'
 
@@ -53,10 +50,17 @@ export async function getProfile() {
   if (!user) return null
 
   try {
-    const profile = await db.query.profiles.findFirst({
-      where: eq(profiles.id, user.id),
-    })
-    return profile ?? null
+    // Use Supabase JS client (HTTPS) instead of Drizzle (raw TCP)
+    // This works on Vercel serverless where direct Postgres may be blocked
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (error || !data) return null
+    return data as import('@/db/schema').Profile
   } catch (err) {
     console.error('[auth] getProfile error:', err)
     return null

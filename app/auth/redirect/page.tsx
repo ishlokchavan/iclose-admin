@@ -1,27 +1,26 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * Role-aware redirect after login.
- * Reads role from DB — falls back to /dashboard if DB unavailable.
+ * Uses Supabase JS (HTTPS) — works on Vercel serverless.
  */
 export default async function AuthRedirectPage() {
   const user = await getUser()
   if (!user) redirect('/login')
 
   try {
-    const { db } = await import('@/db/client')
-    const { profiles } = await import('@/db/schema')
-    const { eq } = await import('drizzle-orm')
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-    const profile = await db.query.profiles.findFirst({
-      where: eq(profiles.id, user.id),
-      columns: { role: true },
-    })
-
-    if (profile?.role === 'agent') redirect('/portal')
+    if ((data as {role: string} | null)?.role === 'agent') redirect('/portal')
   } catch (err) {
-    console.error('[auth/redirect] DB error, falling back to /dashboard:', err)
+    console.error('[auth/redirect] error:', err)
   }
 
   redirect('/dashboard')
