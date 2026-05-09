@@ -1,30 +1,61 @@
 import type { Metadata } from 'next'
 import { requireRole } from '@/lib/auth'
-import { Briefcase } from 'lucide-react'
+import { getDeals, getDealStats } from '@/lib/actions/deals'
+import { DealTable } from '@/components/dashboard/deals/deal-table'
+import type { DealStatus } from '@/db/schema'
 
 export const metadata: Metadata = { title: 'Deals' }
 
-export default async function DealsPage() {
+export default async function DealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; page?: string }>
+}) {
   await requireRole(['super_admin', 'agent_manager', 'auditor'])
+
+  const params = await searchParams
+  const page = Math.max(1, parseInt(params.page ?? '1', 10))
+  const status = params.status as DealStatus | undefined
+
+  const [result, stats] = await Promise.all([
+    getDeals({ status, page, pageSize: 20 }),
+    getDealStats(),
+  ])
+
+  function formatAed(val: string) {
+    return `AED ${parseFloat(val).toLocaleString('en-AE', { minimumFractionDigits: 0 })}`
+  }
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <div>
         <p className="eyebrow mb-2">Management</p>
         <h1 className="admin-page-title">Deals</h1>
-        <p className="mt-1 text-[14px] text-graphite">Track property deals, commissions, and payments.</p>
+        <p className="mt-1 text-[14px] text-graphite">{result.total} deals total</p>
       </div>
-      <div className="card-surface flex flex-col items-center gap-4 py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mist">
-          <Briefcase className="h-6 w-6 text-graphite-light" />
-        </div>
-        <div>
-          <p className="font-display text-[17px] font-semibold text-ink">Coming in Phase 5</p>
-          <p className="mt-1 max-w-sm text-[14px] text-graphite">Deal management, commission tracking, and payment status.</p>
-        </div>
-        <div className="mt-2 rounded-xl border border-accent/20 bg-accent/5 px-5 py-3">
-          <p className="text-[13px] font-medium text-accent">Phase 5 — Deals + Commission module</p>
-        </div>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: 'Pending', value: stats.pending, color: 'text-yellow-600' },
+          { label: 'Signed', value: stats.signed, color: 'text-blue-600' },
+          { label: 'Paid', value: stats.paid, color: 'text-emerald-600' },
+          { label: 'Total Commission', value: formatAed(stats.totalCommission), color: 'text-ink' },
+        ].map((s) => (
+          <div key={s.label} className="card-mist flex flex-col gap-1 p-4">
+            <p className="admin-section-label">{s.label}</p>
+            <p className={`font-display text-[22px] font-semibold tracking-tight ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
       </div>
+
+      <DealTable
+        deals={result.deals}
+        total={result.total}
+        page={result.page}
+        pageSize={result.pageSize}
+        totalPages={result.totalPages}
+      />
     </div>
   )
 }
