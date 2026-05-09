@@ -111,7 +111,7 @@ async function approveAgentAuth(agentId: string, actorId: string) {
 
   const { data: inviteData } = await sb().auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`,
-    data: { full_name: agent.full_name, role: 'agent' },
+    data: { full_name: agent.full_name },
   })
   if (!inviteData?.user) return
 
@@ -213,7 +213,7 @@ export async function createAgentByAdmin(formData: FormData) {
   if (error || !newAgent) return { ok: false as const, error: 'Failed to create agent' }
 
   if (['active','approved'].includes(initialStatus)) {
-    const { data: inv } = await sb().auth.admin.inviteUserByEmail(email, { redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`, data: { full_name: fullName, role: 'agent' } })
+    const { data: inv } = await sb().auth.admin.inviteUserByEmail(email, { redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/login`, data: { full_name: fullName } })
     if (inv?.user) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (sb() as any).from('profiles').upsert({ id: inv.user.id, full_name: fullName, role: 'agent', status: 'active' })
