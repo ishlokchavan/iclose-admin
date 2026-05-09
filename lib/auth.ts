@@ -1,122 +1,61 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import type { Role } from '@/db/schema'
+import type { Role, Profile } from '@/db/schema'
 
-// ─── User ─────────────────────────────────────────────────────────────────────
-
-/**
- * Returns the authenticated user from Supabase Auth server.
- * Uses getUser() — contacts the Auth server to verify the JWT.
- * More secure than getSession() which only reads from cookies.
- */
 export async function getUser() {
   const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
+  const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) return null
   return user
 }
 
-/**
- * @deprecated Use getUser() instead.
- * Kept for any callers that need the full session object (e.g. refresh token).
- */
 export async function getSession() {
   const supabase = await createClient()
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
-
-  if (error) {
-    console.error('[auth] getSession error:', error.message)
-    return null
-  }
-
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error) return null
   return session
 }
 
-// ─── Profile ──────────────────────────────────────────────────────────────────
-
-/**
- * Returns the current user's profile row from the `profiles` table.
- * Role is read from the DB — never from JWT claims.
- */
-export async function getProfile() {
+export async function getProfile(): Promise<Profile | null> {
   const user = await getUser()
   if (!user) return null
 
   try {
-    // Use Supabase JS client (HTTPS) instead of Drizzle (raw TCP)
-    // This works on Vercel serverless where direct Postgres may be blocked
     const supabase = await createClient()
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
 
     if (error || !data) return null
-    return data as import('@/db/schema').Profile
+    return data as Profile
   } catch (err) {
     console.error('[auth] getProfile error:', err)
     return null
   }
 }
 
-// ─── Role enforcement ─────────────────────────────────────────────────────────
-
-/**
- * Asserts that the current user is authenticated AND has one of the
- * required roles. Reads from `profiles` table — never trusts JWT claims.
- *
- * - Redirects to /login if not authenticated
- * - Redirects to /unauthorized if authenticated but wrong role
- */
 export async function requireRole(
   allowedRoles: Role[],
   options: { redirectTo?: string } = {}
-) {
+): Promise<Profile> {
   const user = await getUser()
-
-  if (!user) {
-    redirect(options.redirectTo ?? '/login')
-  }
+  if (!user) redirect(options.redirectTo ?? '/login')
 
   const profile = await getProfile()
-
-  if (!profile) {
-    redirect('/login')
-  }
-
-  if (!allowedRoles.includes(profile.role)) {
-    redirect('/unauthorized')
-  }
-
-  if (profile.status !== 'active') {
-    redirect('/login?error=account_suspended')
-  }
+  if (!profile) redirect('/login?error=no_profile')
+  if (!allowedRoles.includes(profile.role)) redirect('/unauthorized')
+  if (profile.status !== 'active') redirect('/login?error=account_suspended')
 
   return profile
 }
 
-/**
- * Asserts agent authentication for portal routes.
- */
 export async function requireAgent(options: { redirectTo?: string } = {}) {
   return requireRole(['agent'], options)
 }
 
-/**
- * Returns the current profile without redirecting.
- */
 export async function getProfileOrNull() {
-  try {
-    return await getProfile()
-  } catch {
-    return null
-  }
+  try { return await getProfile() } catch { return null }
 }
