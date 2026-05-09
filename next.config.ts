@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next'
 
+// Disable link prefetching globally — pages load on demand only
+// This prevents the 20+ background requests on every navigation
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [

@@ -24,7 +24,7 @@ function KpiCard({ label, value, icon: Icon, href, accent }: {
   label: string; value: number | string; icon: React.ElementType; href: string; accent?: boolean
 }) {
   return (
-    <Link href={href} className="card-surface group flex flex-col gap-4 p-6 hover:shadow-card-hover transition-shadow">
+    <Link href={href} prefetch={false} className="card-surface group flex flex-col gap-4 p-6 hover:shadow-card-hover transition-shadow">
       <div className="flex items-center justify-between">
         <p className="admin-section-label">{label}</p>
         <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accent ? 'bg-accent/10' : 'bg-mist'}`}>
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
             <h2 className="font-display text-[15px] font-semibold text-ink">Recent Applications</h2>
             <p className="mt-0.5 text-[12px] text-graphite">Latest agent registrations</p>
           </div>
-          <Link href="/dashboard/agents" className="flex items-center gap-1 text-[13px] font-medium text-accent hover:text-accent-hover">
+          <Link href="/dashboard/agents" prefetch={false} className="flex items-center gap-1 text-[13px] font-medium text-accent hover:text-accent-hover">
             View all <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
             {recentAgents.map((agent: Record<string, unknown>) => {
               const status = STATUS_CONFIG[agent.application_status as string] ?? STATUS_CONFIG.applied
               return (
-                <Link key={agent.id as string} href={`/dashboard/agents/${agent.id}`}
+                <Link key={agent.id as string} prefetch={false} href={`/dashboard/agents/${agent.id}`}
                   className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-fog">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/90">
                     <span className="font-sans text-[13px] font-semibold text-white">
