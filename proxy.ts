@@ -156,16 +156,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // Redirect logged-in users away from login/forgot-password
+  // Note: we can't check role here without a DB call — redirect to / and let it resolve
   if (user && (pathname === '/login' || pathname === '/forgot-password')) {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/dashboard'
+    redirectUrl.pathname = '/'
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Redirect root
+  // Redirect root — proxy can't check role (no DB), send to a resolver page
   if (pathname === '/') {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = user ? '/dashboard' : '/login'
+    redirectUrl.pathname = user ? '/auth/redirect' : '/login'
     return NextResponse.redirect(redirectUrl)
   }
 

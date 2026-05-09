@@ -78,10 +78,8 @@ export default function InviteHandler() {
       return
     }
 
-    // Redirect to portal for agents, dashboard for admins
-    const { data: { user } } = await supabase.auth.getUser()
-    const role = user?.user_metadata?.role ?? 'agent'
-    router.push(role === 'agent' ? '/portal' : '/dashboard')
+    // Always go to portal first — server will redirect if wrong role
+    router.push('/portal')
     router.refresh()
   }
 

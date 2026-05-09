@@ -46,7 +46,8 @@ export default function LoginForm() {
         return
       }
 
-      router.push('/dashboard')
+      // Let the server decide where to redirect based on role
+      router.push('/')
       router.refresh()
     })
   }
@@ -70,7 +71,8 @@ export default function LoginForm() {
         return
       }
 
-      router.push('/dashboard')
+      // Let the server decide where to redirect based on role
+      router.push('/')
       router.refresh()
     })
   }
