@@ -30,7 +30,18 @@ export async function getProfile(): Promise<Profile | null> {
       .single()
 
     if (error || !data) return null
-    return data as Profile
+    // Map snake_case DB fields to camelCase Profile type
+    const row = data as Record<string, unknown>
+    return {
+      id: row.id,
+      fullName: row.full_name,
+      phone: row.phone,
+      role: row.role,
+      status: row.status,
+      avatarUrl: row.avatar_url,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    } as Profile
   } catch (err) {
     console.error('[auth] getProfile error:', err)
     return null

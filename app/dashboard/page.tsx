@@ -72,7 +72,7 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-8">
       <div>
         <p className="eyebrow mb-2">Overview</p>
-        <h1 className="admin-page-title">{greeting()}, {profile.fullName.split(' ')[0]} 👋</h1>
+        <h1 className="admin-page-title">{greeting()}, {profile.fullName?.split(' ')[0] ?? 'there'} 👋</h1>
         <p className="mt-1 text-[14px] text-graphite">Here&apos;s what&apos;s happening with iClose today.</p>
       </div>
 
