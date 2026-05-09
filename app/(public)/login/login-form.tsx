@@ -1,52 +1,136 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { signIn, verifyMfa } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils'
 
-interface LoginFormProps {
-  searchParams: Promise<{ next?: string; error?: string }>
+type Step = 'credentials' | 'mfa'
+
+interface MfaState {
+  factorId: string
+  challengeId: string
 }
 
-// Stub action — replaced with real Supabase auth in Phase 1
-async function signInAction(_formData: FormData): Promise<{ error: string | null }> {
-  // Phase 1: call supabase.auth.signInWithPassword()
-  return { error: null }
-}
-
-export default function LoginForm(_props: LoginFormProps) {
+export default function LoginForm() {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [step, setStep] = useState<Step>('credentials')
+  const [mfaState, setMfaState] = useState<MfaState | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // ─── Credentials step ──────────────────────────────────────────────────────
+
+  function handleCredentialsSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
+    const formData = new FormData(e.currentTarget)
 
-    try {
-      const formData = new FormData(e.currentTarget)
-      const result = await signInAction(formData)
-      if (result.error) {
+    startTransition(async () => {
+      const result = await signIn(formData)
+
+      if (!result.ok) {
         setError(result.error)
+        return
       }
-      // Phase 1: redirect on success
-    } catch {
-      setError('An unexpected error occurred. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+
+      if (result.mfaRequired && result.factorId && result.challengeId) {
+        setMfaState({ factorId: result.factorId, challengeId: result.challengeId })
+        setStep('mfa')
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
+    })
   }
 
+  // ─── MFA step ──────────────────────────────────────────────────────────────
+
+  function handleMfaSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    if (!mfaState) return
+
+    const formData = new FormData(e.currentTarget)
+    formData.set('factorId', mfaState.factorId)
+    formData.set('challengeId', mfaState.challengeId)
+
+    startTransition(async () => {
+      const result = await verifyMfa(formData)
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
+    })
+  }
+
+  // ─── MFA screen ────────────────────────────────────────────────────────────
+
+  if (step === 'mfa') {
+    return (
+      <form onSubmit={handleMfaSubmit} noValidate className="flex flex-col gap-5">
+        <div className="text-center">
+          <p className="font-sans text-[15px] font-medium text-ink">Two-factor authentication</p>
+          <p className="mt-1 text-[13px] text-graphite">
+            Enter the 6-digit code from your authenticator app.
+          </p>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-[13px] text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="code">Authentication code</Label>
+          <Input
+            id="code"
+            name="code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="000000"
+            maxLength={6}
+            className="text-center font-mono text-[22px] tracking-[0.3em]"
+            autoFocus
+            required
+            disabled={isPending}
+            error={!!error}
+          />
+        </div>
+
+        <Button type="submit" variant="primary" size="lg" loading={isPending} className="w-full">
+          {isPending ? 'Verifying…' : 'Verify'}
+        </Button>
+
+        <button
+          type="button"
+          onClick={() => { setStep('credentials'); setError(null) }}
+          className="text-center text-[13px] text-graphite transition-colors hover:text-ink"
+        >
+          ← Back to sign in
+        </button>
+      </form>
+    )
+  }
+
+  // ─── Credentials screen ────────────────────────────────────────────────────
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-      {/* Error banner */}
+    <form onSubmit={handleCredentialsSubmit} noValidate className="flex flex-col gap-5">
       {error && (
         <div className="flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-[13px] text-red-700">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -54,7 +138,6 @@ export default function LoginForm(_props: LoginFormProps) {
         </div>
       )}
 
-      {/* Email */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email address</Label>
         <Input
@@ -63,24 +146,16 @@ export default function LoginForm(_props: LoginFormProps) {
           type="email"
           autoComplete="email"
           placeholder="you@iclose.ae"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           required
-          disabled={isLoading}
+          disabled={isPending}
           error={!!error}
-          aria-describedby={error ? 'login-error' : undefined}
         />
       </div>
 
-      {/* Password */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">Password</Label>
-          <Link
-            href="/forgot-password"
-            className="applelink text-[12px]"
-            tabIndex={0}
-          >
+          <Link href="/forgot-password" className="applelink text-[12px]">
             Forgot password?
           </Link>
         </div>
@@ -91,10 +166,8 @@ export default function LoginForm(_props: LoginFormProps) {
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder="••••••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
-            disabled={isLoading}
+            disabled={isPending}
             error={!!error}
             className="pr-12"
           />
@@ -109,24 +182,13 @@ export default function LoginForm(_props: LoginFormProps) {
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             tabIndex={-1}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" aria-hidden />
-            ) : (
-              <Eye className="h-4 w-4" aria-hidden />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
           </button>
         </div>
       </div>
 
-      {/* Submit */}
-      <Button
-        type="submit"
-        variant="primary"
-        size="lg"
-        loading={isLoading}
-        className="mt-1 w-full"
-      >
-        {isLoading ? 'Signing in…' : 'Sign in'}
+      <Button type="submit" variant="primary" size="lg" loading={isPending} className="mt-1 w-full">
+        {isPending ? 'Signing in…' : 'Sign in'}
       </Button>
     </form>
   )

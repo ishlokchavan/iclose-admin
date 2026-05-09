@@ -1,26 +1,17 @@
 import type { Metadata } from 'next'
-import LoginForm from './login-form'
+import UpdatePasswordForm from './update-password-form'
 
-export const metadata: Metadata = {
-  title: 'Sign In',
-}
+export const metadata: Metadata = { title: 'Set New Password' }
 
-export default function LoginPage() {
+export default function UpdatePasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-16">
-      {/* Subtle background texture */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.015]"
         style={{
-          backgroundImage:
-            'radial-gradient(circle at 25% 25%, #1d1d1f 1px, transparent 1px), radial-gradient(circle at 75% 75%, #1d1d1f 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle at 25% 25%, #1d1d1f 1px, transparent 1px)',
           backgroundSize: '48px 48px',
         }}
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none fixed left-1/2 top-1/4 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.06]"
-        style={{ background: 'radial-gradient(circle, #0071e3 0%, transparent 70%)' }}
         aria-hidden
       />
 
@@ -33,19 +24,17 @@ export default function LoginPage() {
           </div>
           <div className="text-center">
             <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">
-              iClose Admin
+              Set new password
             </h1>
-            <p className="mt-1 text-[13px] text-graphite">Sign in to your account</p>
+            <p className="mt-1 text-[13px] text-graphite">
+              Choose a strong password — at least 12 characters.
+            </p>
           </div>
         </div>
 
         <div className="card-surface px-8 py-8">
-          <LoginForm />
+          <UpdatePasswordForm />
         </div>
-
-        <p className="mt-8 text-center text-[12px] text-graphite-light">
-          © {new Date().getFullYear()} iClose. All rights reserved.
-        </p>
       </div>
     </main>
   )

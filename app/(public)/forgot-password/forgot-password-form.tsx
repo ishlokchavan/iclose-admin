@@ -1,28 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { resetPassword } from '@/lib/actions/auth'
 
 export default function ForgotPasswordForm() {
   const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
+    setError(null)
+    const formData = new FormData(e.currentTarget)
 
-    try {
-      // Phase 1: call supabase.auth.resetPasswordForEmail(email, { redirectTo })
-      await new Promise((r) => setTimeout(r, 800)) // stub delay
+    startTransition(async () => {
+      const result = await resetPassword(formData)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
       setSent(true)
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   if (sent) {
@@ -32,8 +36,8 @@ export default function ForgotPasswordForm() {
         <div>
           <p className="font-sans text-[15px] font-medium text-ink">Check your email</p>
           <p className="mt-1 text-[13px] text-graphite">
-            We&apos;ve sent a password reset link to{' '}
-            <span className="font-medium text-ink">{email}</span>.
+            If <span className="font-medium text-ink">{email}</span> has an account,
+            you&apos;ll receive a reset link shortly.
           </p>
         </div>
         <Link href="/login" className="applelink mt-2 text-[13px]">
@@ -45,6 +49,13 @@ export default function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+      {error && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email address</Label>
         <Input
@@ -56,12 +67,13 @@ export default function ForgotPasswordForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          disabled={isLoading}
+          disabled={isPending}
+          error={!!error}
         />
       </div>
 
-      <Button type="submit" variant="primary" size="lg" loading={isLoading} className="w-full">
-        {isLoading ? 'Sending…' : 'Send reset link'}
+      <Button type="submit" variant="primary" size="lg" loading={isPending} className="w-full">
+        {isPending ? 'Sending…' : 'Send reset link'}
       </Button>
 
       <Link
