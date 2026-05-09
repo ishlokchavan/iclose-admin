@@ -202,11 +202,16 @@ async function approveAgentAuth(agentId: string, actorId: string) {
   // Skip if already has a profile (already invited)
   if (agent.profileId) return
 
-  const supabase = await createClient()
+  const { createClient: createServiceClient } = await import('@supabase/supabase-js')
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 
   // Send Supabase Auth invite
   const { data: inviteData, error: inviteError } =
-    await supabase.auth.admin.inviteUserByEmail(email, {
+    await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_ADMIN_URL}/update-password`,
       data: { full_name: agent.fullName, role: 'agent' },
     })
