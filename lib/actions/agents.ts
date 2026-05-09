@@ -353,6 +353,7 @@ export async function createAgentByAdmin(formData: FormData) {
     encryptFn(email),
   ])
 
+  const now = new Date()
   const [newAgent] = await db.insert(agents).values({
     fullName,
     phoneEncrypted,
@@ -362,6 +363,12 @@ export async function createAgentByAdmin(formData: FormData) {
     applicationStatus: initialStatus,
     source,
     assignedTo: profile.id,
+    // Set relevant timestamps based on initial status
+    appliedAt: now,
+    contactedAt: ['contacted','qualified','approved','active'].includes(initialStatus) ? now : undefined,
+    qualifiedAt: ['qualified','approved','active'].includes(initialStatus) ? now : undefined,
+    approvedAt: ['approved','active'].includes(initialStatus) ? now : undefined,
+    lastActiveAt: initialStatus === 'active' ? now : undefined,
   }).returning({ id: agents.id })
 
   if (!newAgent) return { ok: false as const, error: 'Failed to create agent' }
