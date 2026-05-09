@@ -30,7 +30,7 @@ function NavLink({ href, icon: Icon, label, exact = false }: {
   const pathname = usePathname()
   const isActive = exact ? pathname === href : pathname.startsWith(href)
   return (
-    <Link href={href} className={cn('admin-sidebar-link', isActive && 'admin-sidebar-link-active')}>
+    <Link href={href} prefetch={false} className={cn('admin-sidebar-link', isActive && 'admin-sidebar-link-active')}>
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
       <span className="flex-1">{label}</span>
       {isActive && <ChevronRight className="h-3 w-3 text-graphite-light" aria-hidden />}
