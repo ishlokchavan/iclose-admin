@@ -4,6 +4,7 @@ import { getMyCommission } from '@/lib/actions/portal'
 import { db } from '@/db/client'
 import { agents } from '@/db/schema'
 import { PLAN_CONFIG } from '@/db/schema'
+import { getPlan } from '@/lib/plans'
 import { eq } from 'drizzle-orm'
 import { formatDate } from '@/lib/utils'
 
@@ -19,8 +20,10 @@ export default async function PortalCommissionPage() {
   }) : null
 
   const plan = agent?.plan ?? 'plus'
+  const planRow = await getPlan(plan)
   const planConfig = PLAN_CONFIG[plan]
-  const agentSplit = planConfig.agentSplit
+  const agentSplit = (planRow.agentSplitPct ?? planConfig.agentSplit * 100) / 100
+  const planLabel: string = planRow.label ?? planConfig.label
 
   const data = await getMyCommission()
 
@@ -44,7 +47,7 @@ export default async function PortalCommissionPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className="rounded-full bg-ink px-3 py-1 text-[12px] font-semibold text-white">
-            {planConfig.label}
+            {planLabel}
           </span>
           <span className="text-[12px] text-graphite">{(agentSplit * 100).toFixed(0)}% split</span>
         </div>
@@ -54,7 +57,7 @@ export default async function PortalCommissionPage() {
       <div className="card-surface overflow-hidden">
         <div className="border-b border-hairline px-6 py-4">
           <h2 className="font-display text-[15px] font-semibold text-ink">Your Earnings</h2>
-          <p className="mt-0.5 text-[12px] text-graphite">Based on your {planConfig.label} plan ({(agentSplit * 100).toFixed(0)}% split)</p>
+          <p className="mt-0.5 text-[12px] text-graphite">Based on your {planLabel} plan ({(agentSplit * 100).toFixed(0)}% split)</p>
         </div>
         <div className="grid grid-cols-3 divide-x divide-hairline">
           {[

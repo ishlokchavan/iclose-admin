@@ -5,6 +5,7 @@ import { db } from '@/db/client'
 import { agents } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { PLAN_CONFIG } from '@/db/schema'
+import { getPlan } from '@/lib/plans'
 import { formatDate } from '@/lib/utils'
 import { Briefcase } from 'lucide-react'
 
@@ -20,8 +21,10 @@ export default async function PortalDealsPage() {
   }) : null
 
   const plan = agent?.plan ?? 'plus'
+  const planRow = await getPlan(plan)
   const planConfig = PLAN_CONFIG[plan]
-  const agentSplit = planConfig.agentSplit
+  const agentSplit = (planRow.agentSplitPct ?? planConfig.agentSplit * 100) / 100
+  const planLabel: string = planRow.label ?? planConfig.label
 
   const deals = await getMyDeals()
 
@@ -51,7 +54,7 @@ export default async function PortalDealsPage() {
         {/* Plan badge */}
         <div className="flex flex-col items-end gap-1">
           <span className="rounded-full bg-ink px-3 py-1 text-[12px] font-semibold text-white">
-            {planConfig.label}
+            {planLabel}
           </span>
           <span className="text-[12px] text-graphite">{(agentSplit * 100).toFixed(0)}% commission split</span>
         </div>
@@ -61,7 +64,7 @@ export default async function PortalDealsPage() {
       {deals.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Your Split', value: `${(agentSplit * 100).toFixed(0)}%`, sub: planConfig.label + ' plan' },
+            { label: 'Your Split', value: `${(agentSplit * 100).toFixed(0)}%`, sub: planLabel + ' plan' },
             { label: 'Your Earnings (signed)', value: `AED ${totalEarned.toLocaleString('en-AE', { minimumFractionDigits: 0 })}`, sub: 'Based on signed deals' },
             { label: 'iClose Share', value: `${((1 - agentSplit) * 100).toFixed(0)}%`, sub: 'Platform fee' },
           ].map((s) => (

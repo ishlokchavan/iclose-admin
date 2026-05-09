@@ -327,6 +327,32 @@ export const siteConfig = pgTable('site_config', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── Plans ───────────────────────────────────────────────────────────────────
+
+/**
+ * Subscription plans — editable from admin dashboard.
+ * This is the DB source of truth; PLAN_CONFIG in schema.ts is a fallback.
+ */
+export const plans = pgTable('plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: planEnum('key').notNull().unique(), // 'plus' | 'pro' | 'pro_max' | 'ultra'
+  label: varchar('label', { length: 64 }).notNull(),
+  tagline: text('tagline'),
+  priceMonthlyAed: decimal('price_monthly_aed', { precision: 10, scale: 2 }),
+  priceYearlyAed: decimal('price_yearly_aed', { precision: 10, scale: 2 }),
+  billingCycle: varchar('billing_cycle', { length: 16 }).notNull().default('monthly'), // 'monthly' | 'yearly' | 'free'
+  agentSplitPct: integer('agent_split_pct').notNull(), // e.g. 60, 80, 90, 100
+  isStar: boolean('is_star').notNull().default(false), // "Most popular" flag
+  isActive: boolean('is_active').notNull().default(true),
+  features: jsonb('features_json'), // string[]
+  order: integer('order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type PlanRow = typeof plans.$inferSelect
+export type NewPlanRow = typeof plans.$inferInsert
+
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 export const auditLogs = pgTable('audit_logs', {
