@@ -137,15 +137,6 @@ export async function updateAgentStatus(formData: FormData) {
 
   if (!agent) return { ok: false as const, error: 'Agent not found' }
 
-  // Validate transition
-  const validNext = VALID_STATUS_TRANSITIONS[agent.applicationStatus]
-  if (!validNext.includes(newStatus)) {
-    return {
-      ok: false as const,
-      error: `Cannot transition from ${agent.applicationStatus} to ${newStatus}`,
-    }
-  }
-
   const headersList = await headers()
   const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
   const ua = headersList.get('user-agent') ?? null
