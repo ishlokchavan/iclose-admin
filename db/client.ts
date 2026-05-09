@@ -3,35 +3,21 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set.')
+}
+
 /**
- * Server-only Drizzle client.
- * The `server-only` import ensures this module never reaches the browser bundle.
- *
- * Uses a pooled connection string (DATABASE_URL) suitable for serverless/edge.
- * For migrations, use DIRECT_URL via drizzle.config.ts.
+ * Serverless-safe Drizzle client.
+ * - prepare: false  — required for Supabase Transaction Pooler (PgBouncer)
+ * - max: 1          — serverless functions should use 1 connection per invocation
  */
-
-// Prevent multiple connections in development hot-reload
-const globalForDb = global as unknown as {
-  _pgClient: ReturnType<typeof postgres> | undefined
-}
-
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not set. Check your .env.local file.')
-}
-
-const pgClient =
-  globalForDb._pgClient ??
-  postgres(connectionString, {
-    // Supabase Transaction Pooler requires prepare: false
-    prepare: false,
-  })
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForDb._pgClient = pgClient
-}
+const pgClient = postgres(process.env.DATABASE_URL, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 20,
+  connect_timeout: 10,
+})
 
 export const db = drizzle(pgClient, { schema })
 export type DB = typeof db

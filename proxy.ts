@@ -19,24 +19,15 @@ function isPublicApi(pathname: string) {
   return PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
 }
 
-// ─── Nonce generation ─────────────────────────────────────────────────────────
-
-function generateNonce(): string {
-  const array = new Uint8Array(16)
-  crypto.getRandomValues(array)
-  return Buffer.from(array).toString('base64')
-}
-
 // ─── Security headers ─────────────────────────────────────────────────────────
 
 function applySecurityHeaders(
   response: NextResponse,
-  nonce: string,
   isProd: boolean
 ): NextResponse {
   const csp = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' ${!isProd ? "'unsafe-eval'" : "'unsafe-inline'"} https://www.googletagmanager.com https://connect.facebook.net https://challenges.cloudflare.com`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://connect.facebook.net https://challenges.cloudflare.com`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: https: blob:`,
     `font-src 'self' data:`,
@@ -65,8 +56,6 @@ function applySecurityHeaders(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()'
   )
-  response.headers.set('x-nonce', nonce)
-
   return response
 }
 
@@ -95,8 +84,6 @@ function checkLoginThrottle(ip: string): boolean {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
   const isProd = process.env.NODE_ENV === 'production'
-  const nonce = generateNonce()
-
   // Force HTTPS in production
   if (isProd && request.headers.get('x-forwarded-proto') === 'http') {
     const httpsUrl = request.nextUrl.clone()
@@ -122,7 +109,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Pass public routes through
   if (isPublicApi(pathname)) {
     const response = NextResponse.next()
-    return applySecurityHeaders(response, nonce, isProd)
+    return applySecurityHeaders(response, isProd)
   }
 
   let response = NextResponse.next({
@@ -170,7 +157,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(redirectUrl)
   }
 
-  response = applySecurityHeaders(response, nonce, isProd)
+  response = applySecurityHeaders(response, isProd)
   return response
 }
 
