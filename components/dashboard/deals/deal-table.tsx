@@ -7,10 +7,18 @@ import { ArrowRight, ChevronDown } from 'lucide-react'
 import { updateDealStatus } from '@/lib/actions/deals'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { Deal, Agent, DealStatus } from '@/db/schema'
+import type { DealStatus } from '@/db/schema'
 
-type DealRow = Deal & {
-  agent: Pick<Agent, 'id' | 'fullName' | 'isLicensedAgent'>
+type DealRow = {
+  id: string
+  agent_id: string
+  property_ref: string
+  amount: string
+  commission_amount: string
+  status: string
+  created_at: string
+  agents?: { id: string; full_name: string; is_licensed_agent: boolean } | null
+  agent?: { id: string; fullName: string; isLicensedAgent: boolean } | null
 }
 
 const STATUS_STYLES: Record<DealStatus, string> = {
@@ -113,18 +121,18 @@ export function DealTable({
             <div className="divide-y divide-hairline">
               {deals.map((deal) => (
                 <div key={deal.id} className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4">
-                  <Link href={`/dashboard/agents/${deal.agent.id}`}
+                  <Link href={`/dashboard/agents/${(deal.agents as any)?.id}`}
                     className="truncate text-[13px] font-medium text-accent hover:underline">
-                    {deal.agent.fullName}
+                    {(deal.agents as any)?.full_name}
                   </Link>
                   <Link href={`/dashboard/deals/${deal.id}`}
                     className="truncate text-[13px] text-ink hover:text-accent">
-                    {deal.propertyRef}
+                    {deal.property_ref}
                   </Link>
                   <span className="text-[13px] font-medium text-ink">{formatAed(deal.amount)}</span>
-                  <span className="text-[13px] text-graphite">{formatAed(deal.commissionAmount)}</span>
+                  <span className="text-[13px] text-graphite">{formatAed(deal.commission_amount)}</span>
                   <StatusDropdown deal={deal} />
-                  <span className="text-[12px] text-graphite">{formatDate(deal.createdAt)}</span>
+                  <span className="text-[12px] text-graphite">{formatDate(deal.created_at)}</span>
                 </div>
               ))}
             </div>

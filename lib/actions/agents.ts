@@ -21,11 +21,10 @@ export async function getAgents(filters: {
   const to = from + pageSize - 1
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (sb as any).from('agents').select(`
-    id, full_name, application_status, is_licensed_agent, deal_volume,
-    source, applied_at, approved_at, assigned_to, kyc_status, total_commission_earned,
-    assignedTo:profiles!agents_assigned_to_fkey(id, full_name)
-  `, { count: 'exact' })
+  let q = (sb as any).from('agents').select(
+    'id, full_name, application_status, is_licensed_agent, deal_volume, source, applied_at, approved_at, assigned_to, kyc_status, total_commission_earned',
+    { count: 'exact' }
+  )
 
   if (status) q = q.eq('application_status', status)
   if (search) q = q.ilike('full_name', `%${search}%`)

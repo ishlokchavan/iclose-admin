@@ -8,13 +8,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from './status-badge'
 import { formatDate } from '@/lib/utils'
-import { APPLICATION_STATUSES, type ApplicationStatus, type Agent } from '@/db/schema'
+import { APPLICATION_STATUSES, type ApplicationStatus } from '@/db/schema'
 import { cn } from '@/lib/utils'
 
-type AgentRow = Pick<Agent,
-  'id' | 'fullName' | 'applicationStatus' | 'isLicensedAgent' |
-  'dealVolume' | 'source' | 'appliedAt' | 'kycStatus'
->
+type AgentRow = {
+  id: string
+  full_name: string
+  application_status: string
+  is_licensed_agent: boolean
+  deal_volume: string | null
+  source: string | null
+  applied_at: string
+  kyc_status: string
+}
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
   applied:   'Applied',
@@ -142,31 +148,31 @@ export function AgentTable({
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/90">
                       <span className="text-[12px] font-semibold text-white">
-                        {agent.fullName.charAt(0)}
+                        {agent.full_name.charAt(0)}
                       </span>
                     </div>
-                    <span className="truncate text-[14px] font-medium text-ink">{agent.fullName}</span>
+                    <span className="truncate text-[14px] font-medium text-ink">{agent.full_name}</span>
                   </div>
 
                   {/* Type */}
                   <span className="text-[13px] text-graphite">
-                    {agent.isLicensedAgent ? 'Licensed' : 'Connector'}
+                    {agent.is_licensed_agent ? 'Licensed' : 'Connector'}
                   </span>
 
                   {/* Status */}
-                  <StatusBadge status={agent.applicationStatus} />
+                  <StatusBadge status={agent.application_status as any} />
 
                   {/* KYC */}
                   <span className={cn(
                     'text-[12px] font-medium capitalize',
-                    agent.kycStatus === 'verified' ? 'text-green-600' :
-                    agent.kycStatus === 'rejected' ? 'text-red-600' : 'text-graphite'
+                    (agent.kyc_status as string) === 'verified' ? 'text-green-600' :
+                    (agent.kyc_status as string) === 'rejected' ? 'text-red-600' : 'text-graphite'
                   )}>
-                    {agent.kycStatus.replace('_', ' ')}
+                    {String(agent.kyc_status).replace('_', ' ')}
                   </span>
 
                   {/* Date */}
-                  <span className="text-[12px] text-graphite">{formatDate(agent.appliedAt)}</span>
+                  <span className="text-[12px] text-graphite">{formatDate(agent.applied_at)}</span>
 
                   {/* Arrow */}
                   <ArrowRight className="h-4 w-4 text-graphite-light" />

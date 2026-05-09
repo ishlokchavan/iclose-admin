@@ -5,10 +5,14 @@ import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { addAgentNote } from '@/lib/actions/agents'
 import { formatDateTime } from '@/lib/utils'
-import type { AgentNote, Profile } from '@/db/schema'
 
-type NoteWithAuthor = AgentNote & {
-  author: Pick<Profile, 'id' | 'fullName' | 'role'>
+
+type NoteWithAuthor = {
+  id: string
+  body: string
+  created_at: string
+  createdAt?: string
+  author: { id: string; full_name?: string; fullName?: string; role: string } | null
 }
 
 export function NotesThread({
@@ -41,12 +45,12 @@ export function NotesThread({
           notes.map((note) => (
             <div key={note.id} className="flex gap-3">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/90 text-[11px] font-semibold text-white">
-                {note.author.fullName.charAt(0)}
+                {(note.author as any)?.full_name ?? (note.author as any)?.fullName?.charAt(0)}
               </div>
               <div className="flex-1 rounded-xl bg-mist px-4 py-3">
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-ink">{note.author.fullName}</span>
-                  <span className="text-[11px] text-graphite-light">{formatDateTime(note.createdAt)}</span>
+                  <span className="text-[13px] font-medium text-ink">{(note.author as any)?.full_name ?? (note.author as any)?.fullName}</span>
+                  <span className="text-[11px] text-graphite-light">{formatDateTime(note.created_at ?? note.createdAt)}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink/80">{note.body}</p>
               </div>

@@ -40,10 +40,10 @@ export default async function DealDetailPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow mb-1">Deal</p>
-          <h1 className="admin-page-title">{deal.propertyRef}</h1>
-          <Link href={`/dashboard/agents/${deal.agent.id}`}
+          <h1 className="admin-page-title">{deal.property_ref}</h1>
+          <Link href={`/dashboard/agents/${(deal.agents as any)?.id}`}
             className="mt-1 text-[13px] text-accent hover:underline">
-            {deal.agent.fullName}
+            {(deal.agents as any)?.full_name}
           </Link>
         </div>
         <span className={STATUS_COLORS[deal.status] ?? 'badge-applied'}>
@@ -59,12 +59,12 @@ export default async function DealDetailPage({
           </div>
           <div className="divide-y divide-hairline">
             {[
-              { label: 'Transaction Type', value: deal.transactionType === 'off_plan' ? 'Off Plan' : 'Secondary Market' },
+              { label: 'Transaction Type', value: deal.transaction_type === 'off_plan' ? 'Off Plan' : 'Secondary Market' },
               { label: 'Deal Amount', value: formatAed(deal.amount) },
-              { label: 'Commission Rate', value: `${(parseFloat(deal.commissionRate) * 100).toFixed(2)}%` },
-              { label: 'Gross Commission', value: formatAed(deal.commissionAmount) },
-              { label: 'VAT (5%)', value: `${formatAed(deal.vatAmount ?? '0')} (${deal.vatIncluded ? 'included' : 'excluded'})` },
-              { label: 'Total Payable', value: formatAed(String(parseFloat(deal.commissionAmount) + (deal.vatIncluded ? 0 : parseFloat(deal.vatAmount ?? '0')))) },
+              { label: 'Commission Rate', value: `${(parseFloat(deal.commission_rate) * 100).toFixed(2)}%` },
+              { label: 'Gross Commission', value: formatAed(deal.commission_amount) },
+              { label: 'VAT (5%)', value: `${formatAed(deal.vat_amount ?? '0')} (${deal.vat_included ? 'included' : 'excluded'})` },
+              { label: 'Total Payable', value: formatAed(String(parseFloat(deal.commission_amount) + (deal.vat_included ? 0 : parseFloat(deal.vat_amount ?? '0')))) },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-6 py-4">
                 <p className="text-[13px] text-graphite">{label}</p>
@@ -81,9 +81,9 @@ export default async function DealDetailPage({
           </div>
           <div className="divide-y divide-hairline">
             {[
-              { label: 'Created', value: formatDateTime(deal.createdAt) },
-              { label: 'Signed', value: deal.signedAt ? formatDateTime(deal.signedAt) : '—' },
-              { label: 'Paid', value: deal.paidAt ? formatDateTime(deal.paidAt) : '—' },
+              { label: 'Created', value: formatDateTime(deal.created_at) },
+              { label: 'Signed', value: deal.signed_at ? formatDateTime(deal.signed_at) : '—' },
+              { label: 'Paid', value: deal.paid_at ? formatDateTime(deal.paid_at) : '—' },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-6 py-4">
                 <p className="text-[13px] text-graphite">{label}</p>
@@ -95,17 +95,17 @@ export default async function DealDetailPage({
       </div>
 
       {/* Advances */}
-      {deal.advances && deal.advances.length > 0 && (
+      {deal.commission_advances && deal.commission_advances.length > 0 && (
         <div className="card-surface overflow-hidden">
           <div className="border-b border-hairline px-6 py-4">
             <h2 className="font-display text-[15px] font-semibold text-ink">Commission Advances</h2>
           </div>
           <div className="divide-y divide-hairline">
-            {deal.advances.map((adv) => (
+            {deal.commission_advances.map((adv) => (
               <div key={adv.id} className="flex items-center justify-between px-6 py-4">
                 <div>
-                  <p className="text-[14px] font-medium text-ink">{formatAed(adv.amountRequested)}</p>
-                  <p className="text-[12px] text-graphite">{formatDate(adv.requestedAt)}</p>
+                  <p className="text-[14px] font-medium text-ink">{formatAed(adv.amount_requested)}</p>
+                  <p className="text-[12px] text-graphite">{formatDate(adv.requested_at)}</p>
                 </div>
                 <span className={`badge ${
                   adv.status === 'disbursed' ? 'badge-active' :

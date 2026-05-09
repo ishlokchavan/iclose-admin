@@ -19,7 +19,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const agent = await getAgent(id)
-  return { title: agent ? agent.fullName : 'Agent Not Found' }
+  return { title: agent ? agent.full_name : 'Agent Not Found' }
 }
 
 export default async function AgentDetailPage({
@@ -51,17 +51,17 @@ export default async function AgentDetailPage({
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink/90 text-white">
             <span className="font-display text-[20px] font-semibold">
-              {agent.fullName.charAt(0)}
+              {agent.full_name.charAt(0)}
             </span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="admin-page-title">{agent.fullName}</h1>
-              <StatusBadge status={agent.applicationStatus} />
+              <h1 className="admin-page-title">{agent.full_name}</h1>
+              <StatusBadge status={agent.application_status} />
             </div>
             <p className="mt-0.5 text-[13px] text-graphite">
-              {agent.isLicensedAgent ? 'Licensed Agent' : 'Connector / Referrer'}
-              {agent.dealVolume ? ` · ${agent.dealVolume} deals/month` : ''}
+              {agent.is_licensed_agent ? 'Licensed Agent' : 'Connector / Referrer'}
+              {agent.deal_volume ? ` · ${agent.deal_volume} deals/month` : ''}
             </p>
           </div>
         </div>
@@ -70,7 +70,7 @@ export default async function AgentDetailPage({
         {!isReadOnly && (
           <StatusTransition
             agentId={agent.id}
-            currentStatus={agent.applicationStatus}
+            currentStatus={agent.application_status}
           />
         )}
       </div>
@@ -86,11 +86,11 @@ export default async function AgentDetailPage({
             </div>
             <div className="grid grid-cols-2 gap-0 divide-x divide-hairline">
               {[
-                { label: 'Applied', value: formatDateTime(agent.appliedAt), icon: Calendar },
-                { label: 'Approved', value: formatDate(agent.approvedAt), icon: Calendar },
-                { label: 'KYC Status', value: agent.kycStatus.replace('_', ' '), icon: User },
-                { label: 'Deal Volume', value: agent.dealVolume ?? '—', icon: Briefcase },
-                { label: 'Plan', value: `${PLAN_CONFIG[agent.plan ?? 'plus'].label} — ${(PLAN_CONFIG[agent.plan ?? 'plus'].agentSplit * 100).toFixed(0)}% split`, icon: BadgePercent },
+                { label: 'Applied', value: formatDateTime(agent.applied_at), icon: Calendar },
+                { label: 'Approved', value: formatDate(agent.approved_at), icon: Calendar },
+                { label: 'KYC Status', value: agent.kyc_status.replace('_', ' '), icon: User },
+                { label: 'Deal Volume', value: agent.deal_volume ?? '—', icon: Briefcase },
+                { label: 'Plan', value: `${PLAN_CONFIG[(agent.plan ?? 'plus') as keyof typeof PLAN_CONFIG].label} — ${(PLAN_CONFIG[(agent.plan ?? 'plus') as keyof typeof PLAN_CONFIG].agentSplit * 100).toFixed(0)}% split`, icon: BadgePercent },
               ].map(({ label, value, icon: Icon }) => (
                 <div key={label} className="flex flex-col gap-1 px-6 py-4">
                   <div className="flex items-center gap-1.5">
@@ -103,7 +103,7 @@ export default async function AgentDetailPage({
             </div>
 
             {/* Attribution */}
-            {(agent.source ?? agent.utmSource) && (
+            {(agent.source ?? agent.utm_source) && (
               <div className="px-6 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Globe className="h-3.5 w-3.5 text-graphite-light" />
@@ -115,19 +115,19 @@ export default async function AgentDetailPage({
                       source: {agent.source}
                     </span>
                   )}
-                  {agent.utmSource && (
+                  {agent.utm_source && (
                     <span className="rounded-full bg-mist px-3 py-1 text-[12px] text-graphite">
-                      utm_source: {agent.utmSource}
+                      utm_source: {agent.utm_source}
                     </span>
                   )}
-                  {agent.utmMedium && (
+                  {agent.utm_medium && (
                     <span className="rounded-full bg-mist px-3 py-1 text-[12px] text-graphite">
-                      utm_medium: {agent.utmMedium}
+                      utm_medium: {agent.utm_medium}
                     </span>
                   )}
-                  {agent.utmCampaign && (
+                  {agent.utm_campaign && (
                     <span className="rounded-full bg-mist px-3 py-1 text-[12px] text-graphite">
-                      utm_campaign: {agent.utmCampaign}
+                      utm_campaign: {agent.utm_campaign}
                     </span>
                   )}
                 </div>
@@ -149,7 +149,7 @@ export default async function AgentDetailPage({
                   ) : (
                     agent.notes?.map((note) => (
                       <div key={note.id} className="rounded-xl bg-mist px-4 py-3">
-                        <p className="text-[13px] font-medium text-ink">{note.author.fullName}</p>
+                        <p className="text-[13px] font-medium text-ink">{(note.author as any)?.full_name}</p>
                         <p className="mt-1 text-[13px] text-ink/80">{note.body}</p>
                       </div>
                     ))
@@ -169,19 +169,19 @@ export default async function AgentDetailPage({
               <h2 className="font-display text-[15px] font-semibold text-ink">Status History</h2>
             </div>
             <div className="px-6 py-4">
-              <StatusTimeline history={agent.statusHistory ?? []} />
+              <StatusTimeline history={agent.agent_status_history ?? []} />
             </div>
           </div>
 
           {/* Assigned to */}
           <div className="card-surface px-6 py-4">
             <p className="admin-section-label mb-2">Assigned To</p>
-            {agent.assignedTo ? (
+            {agent.profiles ? (
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ink/90 text-[11px] font-semibold text-white">
-                  {agent.assignedTo.fullName.charAt(0)}
+                  {agent.profiles.fullName.charAt(0)}
                 </div>
-                <span className="text-[14px] text-ink">{agent.assignedTo.fullName}</span>
+                <span className="text-[14px] text-ink">{agent.profiles.fullName}</span>
               </div>
             ) : (
               <p className="text-[13px] text-graphite">Unassigned</p>

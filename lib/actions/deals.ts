@@ -15,7 +15,7 @@ export async function getDeals(filters: { status?: DealStatus; agentId?: string;
   const from = (page - 1) * pageSize
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (sb as any).from('deals').select('*, agent:agents(id, full_name, is_licensed_agent)', { count: 'exact' })
+  let q = (sb as any).from('deals').select('*, agents(id, full_name, is_licensed_agent)', { count: 'exact' })
   if (status) q = q.eq('status', status)
   if (agentId) q = q.eq('agent_id', agentId)
 
@@ -29,7 +29,7 @@ export async function getDeal(id: string) {
   const sb = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (sb as any).from('deals')
-    .select('*, agent:agents(id, full_name, is_licensed_agent, application_status), advances:commission_advances(*)')
+    .select('*, agents(id, full_name, is_licensed_agent, application_status), commission_advances(*)')
     .eq('id', id).single()
   return data ?? null
 }
