@@ -69,8 +69,11 @@ export async function getDeal(id: string) {
 const createDealSchema = z.object({
   agentId: z.string().uuid(),
   propertyRef: z.string().min(1).max(256),
+  transactionType: z.enum(['off_plan', 'secondary']).default('secondary'),
   amount: z.coerce.number().positive(),
   commissionRate: z.coerce.number().min(0).max(1),
+  vatAmount: z.coerce.number().min(0).default(0),
+  vatIncluded: z.enum(['included', 'excluded']).default('excluded'),
 })
 
 export async function createDeal(formData: FormData) {
@@ -79,23 +82,29 @@ export async function createDeal(formData: FormData) {
   const parsed = createDealSchema.safeParse({
     agentId: formData.get('agentId'),
     propertyRef: formData.get('propertyRef'),
+    transactionType: formData.get('transactionType'),
     amount: formData.get('amount'),
     commissionRate: formData.get('commissionRate'),
+    vatAmount: formData.get('vatAmount'),
+    vatIncluded: formData.get('vatIncluded'),
   })
 
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
   }
 
-  const { agentId, propertyRef, amount, commissionRate } = parsed.data
+  const { agentId, propertyRef, transactionType, amount, commissionRate, vatAmount, vatIncluded } = parsed.data
   const commissionAmount = amount * commissionRate
 
   const [deal] = await db.insert(deals).values({
     agentId,
     propertyRef,
+    transactionType,
     amount: String(amount),
     commissionRate: String(commissionRate),
     commissionAmount: String(commissionAmount),
+    vatAmount: String(vatAmount),
+    vatIncluded: vatIncluded === 'included',
     status: 'pending',
   }).returning({ id: deals.id })
 

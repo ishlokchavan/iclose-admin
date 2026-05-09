@@ -188,12 +188,15 @@ export const agentStatusHistory = pgTable('agent_status_history', {
 
 // ─── Deals ────────────────────────────────────────────────────────────────────
 
+export const transactionTypeEnum = pgEnum('transaction_type', ['off_plan', 'secondary'])
+
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),
   agentId: uuid('agent_id').notNull().references(() => agents.id, { onDelete: 'restrict' }),
 
   // Property reference (external system ID or address)
   propertyRef: text('property_ref').notNull(),
+  transactionType: transactionTypeEnum('transaction_type').notNull().default('secondary'),
 
   // Buyer is anonymous — only referenced by UUID
   buyerAnonymousId: uuid('buyer_anonymous_id').notNull().defaultRandom(),
@@ -202,6 +205,8 @@ export const deals = pgTable('deals', {
   amount: decimal('amount', { precision: 14, scale: 2 }).notNull(),
   commissionRate: decimal('commission_rate', { precision: 5, scale: 4 }).notNull(),
   commissionAmount: decimal('commission_amount', { precision: 12, scale: 2 }).notNull(),
+  vatAmount: decimal('vat_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  vatIncluded: boolean('vat_included').notNull().default(false),
 
   status: dealStatusEnum('status').notNull().default('pending'),
 

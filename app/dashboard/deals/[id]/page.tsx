@@ -58,9 +58,12 @@ export default async function DealDetailPage({
           </div>
           <div className="divide-y divide-hairline">
             {[
+              { label: 'Transaction Type', value: deal.transactionType === 'off_plan' ? 'Off Plan' : 'Secondary Market' },
               { label: 'Deal Amount', value: formatAed(deal.amount) },
               { label: 'Commission Rate', value: `${(parseFloat(deal.commissionRate) * 100).toFixed(2)}%` },
-              { label: 'Commission Amount', value: formatAed(deal.commissionAmount) },
+              { label: 'Gross Commission', value: formatAed(deal.commissionAmount) },
+              { label: 'VAT (5%)', value: `${formatAed(deal.vatAmount ?? '0')} (${deal.vatIncluded ? 'included' : 'excluded'})` },
+              { label: 'Total Payable', value: formatAed(String(parseFloat(deal.commissionAmount) + (deal.vatIncluded ? 0 : parseFloat(deal.vatAmount ?? '0')))) },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-6 py-4">
                 <p className="text-[13px] text-graphite">{label}</p>
