@@ -2,6 +2,10 @@ import type { Metadata } from 'next'
 import { requireRole } from '@/lib/auth'
 import { getDeals, getDealStats } from '@/lib/actions/deals'
 import { DealTable } from '@/components/dashboard/deals/deal-table'
+import { CreateDealDialog } from '@/components/dashboard/deals/create-deal-dialog'
+import { db } from '@/db/client'
+import { agents } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import type { DealStatus } from '@/db/schema'
 
 export const metadata: Metadata = { title: 'Deals' }
@@ -11,15 +15,20 @@ export default async function DealsPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string }>
 }) {
-  await requireRole(['super_admin', 'agent_manager', 'auditor'])
-
+  const profile = await requireRole(['super_admin', 'agent_manager', 'auditor'])
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10))
   const status = params.status as DealStatus | undefined
+  const canCreate = profile.role === 'super_admin' || profile.role === 'agent_manager'
 
-  const [result, stats] = await Promise.all([
+  const [result, stats, activeAgents] = await Promise.all([
     getDeals({ status, page, pageSize: 20 }),
     getDealStats(),
+    canCreate ? db.query.agents.findMany({
+      where: eq(agents.applicationStatus, 'active'),
+      columns: { id: true, fullName: true },
+      orderBy: (a, { asc }) => [asc(a.fullName)],
+    }) : Promise.resolve([]),
   ])
 
   function formatAed(val: string) {
@@ -28,13 +37,15 @@ export default async function DealsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="eyebrow mb-2">Management</p>
-        <h1 className="admin-page-title">Deals</h1>
-        <p className="mt-1 text-[14px] text-graphite">{result.total} deals total</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow mb-2">Management</p>
+          <h1 className="admin-page-title">Deals</h1>
+          <p className="mt-1 text-[14px] text-graphite">{result.total} deals total</p>
+        </div>
+        {canCreate && <CreateDealDialog agents={activeAgents} />}
       </div>
 
-      {/* Stats strip */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Pending', value: stats.pending, color: 'text-yellow-600' },
