@@ -42,7 +42,7 @@ export default async function PortalDealsPage() {
 
   const totalEarned = deals
     .filter(d => d.status === 'signed' || d.status === 'paid')
-    .reduce((sum, d) => sum + parseFloat(d.commissionAmount) * agentSplit, 0)
+    .reduce((sum, d) => sum + parseFloat(d.commission_amount) * agentSplit, 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -93,16 +93,16 @@ export default async function PortalDealsPage() {
             </div>
             <div className="divide-y divide-hairline">
               {deals.map((deal) => {
-                const gross = parseFloat(deal.commissionAmount)
+                const gross = parseFloat(deal.commission_amount)
                 const yourPayout = gross * agentSplit
                 return (
                   <div key={deal.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4">
                     <div>
-                      <p className="text-[14px] font-medium text-ink">{deal.propertyRef}</p>
-                      <p className="text-[12px] text-graphite">{formatDate(deal.createdAt)}</p>
+                      <p className="text-[14px] font-medium text-ink">{deal.property_ref}</p>
+                      <p className="text-[12px] text-graphite">{formatDate(deal.created_at)}</p>
                     </div>
                     <p className="text-[13px] text-ink">{formatAed(deal.amount)}</p>
-                    <p className="text-[13px] text-graphite">{formatAed(deal.commissionAmount)}</p>
+                    <p className="text-[13px] text-graphite">{formatAed(deal.commission_amount)}</p>
                     <p className="text-[13px] font-semibold text-ink">
                       AED {yourPayout.toLocaleString('en-AE', { minimumFractionDigits: 0 })}
                     </p>
