@@ -61,22 +61,6 @@ export default function UserMenu({ profile }: UserMenuProps) {
           {profile.fullName}
         </span>
       </div>
-
-      {/* Sign out */}
-      {/* <button
-        onClick={handleSignOut}
-        disabled={isPending}
-        className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-lg text-graphite',
-          'transition-colors hover:bg-mist hover:text-ink',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-          'disabled:opacity-50'
-        )}
-        aria-label="Sign out"
-        title="Sign out"
-      >
-        <LogOut className="h-4 w-4" aria-hidden />
-      </button> */}
     </div>
   )
 }
