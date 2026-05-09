@@ -114,6 +114,16 @@ export function CreateAgentDialog() {
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <Label htmlFor="plan">Plan</Label>
+                <select id="plan" name="plan" className="input-base" disabled={isPending}>
+                  <option value="plus">Plus — Free (60% split)</option>
+                  <option value="pro">Pro — AED 1,500/mo (80% split)</option>
+                  <option value="pro_max">Pro Max — AED 40,000/yr (90% split)</option>
+                  <option value="ultra">Ultra — AED 100,000/yr (100% split)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="source">Source</Label>
                 <Input id="source" name="source" placeholder="referral, walk-in, linkedin…" disabled={isPending} />
               </div>

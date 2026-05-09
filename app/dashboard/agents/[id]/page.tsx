@@ -8,7 +8,8 @@ import { NotesThread } from '@/components/dashboard/agents/notes-thread'
 import { StatusTimeline } from '@/components/dashboard/agents/status-timeline'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, User, Calendar, Briefcase, Globe } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Briefcase, Globe, BadgePercent } from 'lucide-react'
+import { PLAN_CONFIG } from '@/db/schema'
 
 export async function generateMetadata({
   params,
@@ -88,6 +89,7 @@ export default async function AgentDetailPage({
                 { label: 'Approved', value: formatDate(agent.approvedAt), icon: Calendar },
                 { label: 'KYC Status', value: agent.kycStatus.replace('_', ' '), icon: User },
                 { label: 'Deal Volume', value: agent.dealVolume ?? '—', icon: Briefcase },
+                { label: 'Plan', value: `${PLAN_CONFIG[agent.plan ?? 'plus'].label} — ${(PLAN_CONFIG[agent.plan ?? 'plus'].agentSplit * 100).toFixed(0)}% split`, icon: BadgePercent },
               ].map(({ label, value, icon: Icon }) => (
                 <div key={label} className="flex flex-col gap-1 px-6 py-4">
                   <div className="flex items-center gap-1.5">

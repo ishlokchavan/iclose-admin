@@ -331,6 +331,7 @@ const createAgentSchema = z.object({
   dealVolume: z.enum(['0-1', '1-3', '3-5', '5-10', '10+']).optional(),
   initialStatus: z.enum(['applied', 'contacted', 'qualified', 'approved', 'active']).default('applied'),
   source: z.string().max(128).optional(),
+  plan: z.enum(['plus', 'pro', 'pro_max', 'ultra']).default('plus'),
 })
 
 export async function createAgentByAdmin(formData: FormData) {
@@ -350,7 +351,7 @@ export async function createAgentByAdmin(formData: FormData) {
     return { ok: false as const, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
   }
 
-  const { fullName, email, phone, isLicensedAgent, dealVolume, initialStatus, source } = parsed.data
+  const { fullName, email, phone, isLicensedAgent, dealVolume, initialStatus, source, plan } = parsed.data
 
   const { encrypt: encryptFn, hashPii: hashPiiFn } = await import('@/lib/encryption')
   const [phoneEncrypted, emailEncrypted] = await Promise.all([
@@ -367,6 +368,7 @@ export async function createAgentByAdmin(formData: FormData) {
     dealVolume,
     applicationStatus: initialStatus,
     source,
+    plan,
     assignedTo: profile.id,
     // Set relevant timestamps based on initial status
     appliedAt: now,

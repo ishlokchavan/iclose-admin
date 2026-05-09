@@ -69,6 +69,18 @@ export const dealVolumeEnum = pgEnum('deal_volume', [
   '10+',
 ])
 
+export const planEnum = pgEnum('plan', ['plus', 'pro', 'pro_max', 'ultra'])
+
+// Plan config — source of truth for commission splits
+export const PLAN_CONFIG = {
+  plus:    { label: 'Plus',    agentSplit: 0.60, monthlyAed: 0,      yearlyAed: 0 },
+  pro:     { label: 'Pro',     agentSplit: 0.80, monthlyAed: 1500,   yearlyAed: 18000 },
+  pro_max: { label: 'Pro Max', agentSplit: 0.90, monthlyAed: null,   yearlyAed: 40000 },
+  ultra:   { label: 'Ultra',   agentSplit: 1.00, monthlyAed: null,   yearlyAed: 100000 },
+} as const
+
+export type Plan = keyof typeof PLAN_CONFIG
+
 // ─── Profiles ─────────────────────────────────────────────────────────────────
 
 export const profiles = pgTable('profiles', {
@@ -127,6 +139,9 @@ export const agents = pgTable('agents', {
 
   // Payout
   payoutDetailsEncrypted: text('payout_details_encrypted'),
+
+  // Subscription plan
+  plan: planEnum('plan').notNull().default('plus'),
 
   // Assignment
   assignedTo: uuid('assigned_to').references(() => profiles.id, { onDelete: 'set null' }),
@@ -396,6 +411,7 @@ export type NewAgent = typeof agents.$inferInsert
 export type ApplicationStatus = (typeof applicationStatusEnum.enumValues)[number]
 export type DealVolume = (typeof dealVolumeEnum.enumValues)[number]
 export type KycStatus = (typeof kycStatusEnum.enumValues)[number]
+export type AgentPlan = (typeof planEnum.enumValues)[number]
 
 export type AgentNote = typeof agentNotes.$inferSelect
 export type NewAgentNote = typeof agentNotes.$inferInsert
