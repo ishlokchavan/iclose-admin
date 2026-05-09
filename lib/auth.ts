@@ -1,41 +1,40 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cache } from 'react'
 import type { Role, Profile } from '@/db/schema'
 
-export async function getUser() {
+/**
+ * React cache() deduplicates calls within a single server render pass.
+ * getUser() and getProfile() are called multiple times per page
+ * (layout + page + components) — cache ensures only 1 network call each.
+ */
+
+export const getUser = cache(async () => {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) return null
   return user
-}
+})
 
-export async function getSession() {
-  const supabase = await createClient()
-  const { data: { session }, error } = await supabase.auth.getSession()
-  if (error) return null
-  return session
-}
-
-export async function getProfile(): Promise<Profile | null> {
+export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser()
   if (!user) return null
 
   try {
-    // Use service client to bypass RLS — we already verified the user via getUser()
     const { createServiceClient } = await import('@/lib/supabase/service')
     const sb = createServiceClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (sb as any)
       .from('profiles')
-      .select('*')
+      .select('id, full_name, phone, role, status, avatar_url, created_at, updated_at')
       .eq('id', user.id)
       .single()
 
     if (error || !data) {
-      console.error('[auth] getProfile query error:', error?.message)
+      console.error('[auth] getProfile error:', error?.message)
       return null
     }
-    // Map snake_case DB fields to camelCase Profile type
+
     const row = data as Record<string, unknown>
     return {
       id: row.id,
@@ -51,6 +50,13 @@ export async function getProfile(): Promise<Profile | null> {
     console.error('[auth] getProfile error:', err)
     return null
   }
+})
+
+export async function getSession() {
+  const supabase = await createClient()
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error) return null
+  return session
 }
 
 export async function requireRole(
@@ -62,12 +68,12 @@ export async function requireRole(
 
   const profile = await getProfile()
   if (!profile) redirect('/login?error=no_profile')
+
   if (!allowedRoles.includes(profile.role)) {
-    // Agents trying to access admin → send to portal
-    // Admins trying to access portal → send to dashboard
     if (profile.role === 'agent') redirect('/portal')
     redirect('/unauthorized')
   }
+
   if (profile.status !== 'active') redirect('/login?error=account_suspended')
 
   return profile
