@@ -1,26 +1,18 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
-/**
- * Role-aware redirect after login.
- * Uses Supabase JS (HTTPS) — works on Vercel serverless.
- */
 export default async function AuthRedirectPage() {
   const user = await getUser()
   if (!user) redirect('/login')
 
   try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if ((data as {role: string} | null)?.role === 'agent') redirect('/portal')
+    const sb = createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (sb as any).from('profiles').select('role').eq('id', user.id).single()
+    if (data?.role === 'agent') redirect('/portal')
   } catch (err) {
-    console.error('[auth/redirect] error:', err)
+    console.error('[auth/redirect]', err)
   }
 
   redirect('/dashboard')

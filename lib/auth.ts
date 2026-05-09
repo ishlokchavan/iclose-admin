@@ -62,7 +62,12 @@ export async function requireRole(
 
   const profile = await getProfile()
   if (!profile) redirect('/login?error=no_profile')
-  if (!allowedRoles.includes(profile.role)) redirect('/unauthorized')
+  if (!allowedRoles.includes(profile.role)) {
+    // Agents trying to access admin → send to portal
+    // Admins trying to access portal → send to dashboard
+    if (profile.role === 'agent') redirect('/portal')
+    redirect('/unauthorized')
+  }
   if (profile.status !== 'active') redirect('/login?error=account_suspended')
 
   return profile
