@@ -29,7 +29,7 @@ function corsHeaders(origin: string | null) {
 
 const fallbackSchema = z.object({
   fullName: z.string().min(2, 'Full name is required').max(128),
-  email: z.string().email('Valid email required'),
+  email: z.string().email('Valid email required').optional(),
   phone: z.string().min(7, 'Valid phone required').max(32),
   isLicensedAgent: z.boolean(),
   dealVolume: z.enum(['0-1', '1-3', '3-5', '5-10', '10+']).optional(),
@@ -132,14 +132,14 @@ export async function POST(request: NextRequest) {
   // 7. Hash IP + encrypt PII
   const ipHash = await hashPii(ip)
   const phoneEncrypted = await encrypt(validatedData.phone)
-  const emailEncrypted = await encrypt(validatedData.email)
+  const emailEncrypted = validatedData.email ? await encrypt(validatedData.email) : null
   const ua = request.headers.get('user-agent') ?? undefined
 
   // 8. Insert agent row
   const [newAgent] = await db.insert(agents).values({
     fullName: validatedData.fullName,
     phoneEncrypted,
-    emailEncrypted,
+    emailEncrypted: emailEncrypted ?? undefined,
     isLicensedAgent: validatedData.isLicensedAgent,
     dealVolume: validatedData.dealVolume,
     applicationStatus: 'applied',
