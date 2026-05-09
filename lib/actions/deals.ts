@@ -1,8 +1,6 @@
 'use server'
 
-import { db } from '@/db/client'
-import { deals, agents, commissionAdvances } from '@/db/schema'
-import { eq, desc, and, count, sql } from 'drizzle-orm'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireRole } from '@/lib/auth'
 import { writeAudit } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
@@ -10,189 +8,114 @@ import { z } from 'zod'
 import { headers } from 'next/headers'
 import type { DealStatus } from '@/db/schema'
 
-// ─── List deals ───────────────────────────────────────────────────────────────
-
-export async function getDeals(filters: {
-  status?: DealStatus
-  agentId?: string
-  page?: number
-  pageSize?: number
-} = {}) {
+export async function getDeals(filters: { status?: DealStatus; agentId?: string; page?: number; pageSize?: number } = {}) {
   await requireRole(['super_admin', 'agent_manager', 'auditor'])
-
+  const sb = createServiceClient()
   const { status, agentId, page = 1, pageSize = 20 } = filters
-  const offset = (page - 1) * pageSize
+  const from = (page - 1) * pageSize
 
-  const conditions = []
-  if (status) conditions.push(eq(deals.status, status))
-  if (agentId) conditions.push(eq(deals.agentId, agentId))
-  const where = conditions.length > 0 ? and(...conditions) : undefined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (sb as any).from('deals').select('*, agent:agents(id, full_name, is_licensed_agent)', { count: 'exact' })
+  if (status) q = q.eq('status', status)
+  if (agentId) q = q.eq('agent_id', agentId)
 
-  const [rows, totalResult] = await Promise.all([
-    db.query.deals.findMany({
-      where,
-      orderBy: [desc(deals.createdAt)],
-      limit: pageSize,
-      offset,
-      with: {
-        agent: { columns: { id: true, fullName: true, isLicensedAgent: true } },
-      },
-    }),
-    db.select({ count: count() }).from(deals).where(where),
-  ])
-
-  return {
-    deals: rows,
-    total: totalResult[0]?.count ?? 0,
-    page,
-    pageSize,
-    totalPages: Math.ceil((totalResult[0]?.count ?? 0) / pageSize),
-  }
+  const { data, count } = await q.order('created_at', { ascending: false }).range(from, from + pageSize - 1)
+  const total = count ?? 0
+  return { deals: data ?? [], total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
 }
-
-// ─── Get single deal ──────────────────────────────────────────────────────────
 
 export async function getDeal(id: string) {
   await requireRole(['super_admin', 'agent_manager', 'auditor'])
-
-  return db.query.deals.findFirst({
-    where: eq(deals.id, id),
-    with: {
-      agent: { columns: { id: true, fullName: true, isLicensedAgent: true, applicationStatus: true } },
-      advances: { orderBy: [desc(commissionAdvances.requestedAt)] },
-    },
-  }) ?? null
+  const sb = createServiceClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (sb as any).from('deals')
+    .select('*, agent:agents(id, full_name, is_licensed_agent, application_status), advances:commission_advances(*)')
+    .eq('id', id).single()
+  return data ?? null
 }
-
-// ─── Create deal ──────────────────────────────────────────────────────────────
 
 const createDealSchema = z.object({
   agentId: z.string().uuid(),
   propertyRef: z.string().min(1).max(256),
-  transactionType: z.enum(['off_plan', 'secondary']).default('secondary'),
+  transactionType: z.enum(['off_plan','secondary']).default('secondary'),
   amount: z.coerce.number().positive(),
   commissionRate: z.coerce.number().min(0).max(1),
   vatAmount: z.coerce.number().min(0).default(0),
-  vatIncluded: z.enum(['included', 'excluded']).default('excluded'),
+  vatIncluded: z.enum(['included','excluded']).default('excluded'),
 })
 
 export async function createDeal(formData: FormData) {
   const profile = await requireRole(['super_admin', 'agent_manager'])
-
   const parsed = createDealSchema.safeParse({
-    agentId: formData.get('agentId'),
-    propertyRef: formData.get('propertyRef'),
-    transactionType: formData.get('transactionType'),
-    amount: formData.get('amount'),
-    commissionRate: formData.get('commissionRate'),
-    vatAmount: formData.get('vatAmount'),
+    agentId: formData.get('agentId'), propertyRef: formData.get('propertyRef'),
+    transactionType: formData.get('transactionType'), amount: formData.get('amount'),
+    commissionRate: formData.get('commissionRate'), vatAmount: formData.get('vatAmount'),
     vatIncluded: formData.get('vatIncluded'),
   })
-
-  if (!parsed.success) {
-    return { ok: false as const, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
-  }
+  if (!parsed.success) return { ok: false as const, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
 
   const { agentId, propertyRef, transactionType, amount, commissionRate, vatAmount, vatIncluded } = parsed.data
   const commissionAmount = amount * commissionRate
+  const sb = createServiceClient()
 
-  const [deal] = await db.insert(deals).values({
-    agentId,
-    propertyRef,
-    transactionType,
-    amount: String(amount),
-    commissionRate: String(commissionRate),
-    commissionAmount: String(commissionAmount),
-    vatAmount: String(vatAmount),
-    vatIncluded: vatIncluded === 'included',
-    status: 'pending',
-  }).returning({ id: deals.id })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: deal, error } = await (sb as any).from('deals').insert({
+    agent_id: agentId, property_ref: propertyRef, transaction_type: transactionType,
+    amount: String(amount), commission_rate: String(commissionRate),
+    commission_amount: String(commissionAmount), vat_amount: String(vatAmount),
+    vat_included: vatIncluded === 'included', status: 'pending',
+  }).select('id').single()
 
-  await writeAudit({
-    actorId: profile.id,
-    action: 'deal.created',
-    entity: 'deals',
-    entityId: deal?.id,
-    after: { agentId, propertyRef, amount, commissionRate, commissionAmount },
-  })
-
+  if (error || !deal) return { ok: false as const, error: 'Failed to create deal' }
+  await writeAudit({ actorId: profile.id, action: 'deal.created', entity: 'deals', entityId: deal.id, after: { agentId, propertyRef, amount, commissionRate } })
   revalidatePath('/dashboard/deals')
-  return { ok: true as const, dealId: deal?.id }
+  return { ok: true as const, dealId: deal.id }
 }
-
-// ─── Update deal status ───────────────────────────────────────────────────────
 
 export async function updateDealStatus(dealId: string, newStatus: DealStatus) {
   const profile = await requireRole(['super_admin', 'agent_manager'])
-
-  const existing = await db.query.deals.findFirst({
-    where: eq(deals.id, dealId),
-    columns: { id: true, status: true, agentId: true, commissionAmount: true },
-  })
-
+  const sb = createServiceClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (sb as any).from('deals').select('id, status, agent_id, commission_amount').eq('id', dealId).single()
   if (!existing) return { ok: false as const, error: 'Deal not found' }
 
-  const updates: Partial<typeof deals.$inferInsert> = {
-    status: newStatus,
-    updatedAt: new Date(),
-  }
+  const updates: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() }
+  if (newStatus === 'signed') updates.signed_at = new Date().toISOString()
+  if (newStatus === 'paid') updates.paid_at = new Date().toISOString()
 
-  if (newStatus === 'signed') updates.signedAt = new Date()
-  if (newStatus === 'paid') updates.paidAt = new Date()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (sb as any).from('deals').update(updates).eq('id', dealId)
 
-  await db.update(deals).set(updates).where(eq(deals.id, dealId))
-
-  // Update agent total_commission_earned when deal is signed
   if (newStatus === 'signed') {
-    await db.execute(
-      sql`UPDATE agents SET total_commission_earned = total_commission_earned + ${existing.commissionAmount}::decimal WHERE id = ${existing.agentId}`
-    )
-  }
-
-  // Update agent total_commission_paid when deal is paid
-  if (newStatus === 'paid') {
-    await db.execute(
-      sql`UPDATE agents SET total_commission_paid = total_commission_paid + ${existing.commissionAmount}::decimal WHERE id = ${existing.agentId}`
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: agent } = await (sb as any).from('agents').select('total_commission_earned').eq('id', existing.agent_id).single()
+    const newTotal = (parseFloat(agent?.total_commission_earned ?? '0') + parseFloat(existing.commission_amount)).toFixed(2)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (sb as any).from('agents').update({ total_commission_earned: newTotal }).eq('id', existing.agent_id)
   }
 
   const headersList = await headers()
-  await writeAudit({
-    actorId: profile.id,
-    action: 'deal.status_change',
-    entity: 'deals',
-    entityId: dealId,
-    before: { status: existing.status },
-    after: { status: newStatus },
-    ip: headersList.get('x-forwarded-for')?.split(',')[0] ?? undefined,
-  })
-
+  await writeAudit({ actorId: profile.id, action: 'deal.status_change', entity: 'deals', entityId: dealId, before: { status: existing.status }, after: { status: newStatus }, ip: headersList.get('x-forwarded-for')?.split(',')[0] ?? undefined })
   revalidatePath('/dashboard/deals')
   revalidatePath(`/dashboard/deals/${dealId}`)
   return { ok: true as const }
 }
 
-// ─── Deal stats ───────────────────────────────────────────────────────────────
-
 export async function getDealStats() {
   await requireRole(['super_admin', 'agent_manager', 'auditor'])
-
-  const [pending, signed, paid, cancelled] = await Promise.all([
-    db.select({ count: count() }).from(deals).where(eq(deals.status, 'pending')),
-    db.select({ count: count() }).from(deals).where(eq(deals.status, 'signed')),
-    db.select({ count: count() }).from(deals).where(eq(deals.status, 'paid')),
-    db.select({ count: count() }).from(deals).where(eq(deals.status, 'cancelled')),
+  const sb = createServiceClient()
+  const [p, s, pa, c] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sb as any).from('deals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sb as any).from('deals').select('*', { count: 'exact', head: true }).eq('status', 'signed'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sb as any).from('deals').select('*', { count: 'exact', head: true }).eq('status', 'paid'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sb as any).from('deals').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
   ])
-
-  const totalCommission = await db.execute(
-    sql`SELECT COALESCE(SUM(commission_amount), 0) as total FROM deals WHERE status IN ('signed', 'paid')`
-  )
-
-  return {
-    pending: pending[0]?.count ?? 0,
-    signed: signed[0]?.count ?? 0,
-    paid: paid[0]?.count ?? 0,
-    cancelled: cancelled[0]?.count ?? 0,
-    totalCommission: String((totalCommission as unknown as Array<{total: string}>)[0]?.total ?? '0'),
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: commData } = await (sb as any).from('deals').select('commission_amount').in('status', ['signed','paid'])
+  const totalCommission = (commData ?? []).reduce((sum: number, d: Record<string, string>) => sum + parseFloat(d.commission_amount ?? '0'), 0).toFixed(2)
+  return { pending: p.count ?? 0, signed: s.count ?? 0, paid: pa.count ?? 0, cancelled: c.count ?? 0, totalCommission }
 }

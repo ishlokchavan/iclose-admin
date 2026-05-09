@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata } from 'next'
 import { requireRole, getProfile } from '@/lib/auth'
 import { getMyCommission } from '@/lib/actions/portal'
-import { db } from '@/db/client'
+import { createServiceClient } from '@/lib/supabase/service'
 import { agents } from '@/db/schema'
 import { PLAN_CONFIG } from '@/db/schema'
 import { getPlan } from '@/lib/plans'
@@ -14,14 +15,16 @@ export default async function PortalCommissionPage() {
   await requireRole(['agent'])
   const profile = await getProfile()
 
-  const agent = profile ? await db.query.agents.findFirst({
-    where: eq(agents.profileId, profile.id),
-    columns: { plan: true, totalCommissionEarned: true, totalCommissionPaid: true },
-  }) : null
+  const agent = profile ? await (async () => {
+    const sb = createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (sb as any).from('agents').select('plan, total_commission_earned, total_commission_paid').eq('profile_id', profile.id).single()
+    return data
+  })() : null
 
   const plan = agent?.plan ?? 'plus'
   const planRow = await getPlan(plan)
-  const planConfig = PLAN_CONFIG[plan]
+  const planConfig = PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG]
   const agentSplit = (planRow.agentSplitPct ?? planConfig.agentSplit * 100) / 100
   const planLabel: string = planRow.label ?? planConfig.label
 

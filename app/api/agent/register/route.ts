@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { db } from '@/db/client'
+import { createServiceClient } from '@/lib/supabase/service'
 import { agents, profiles, cmsFormSchemas } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
 import { rateLimit } from '@/lib/rate-limit'
 import { verifyTurnstile } from '@/lib/turnstile'
 import { encrypt, hashPii } from '@/lib/encryption'
@@ -77,6 +76,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const sb = createServiceClient()
+
   // 3. Parse body
   let body: unknown
   try {
@@ -105,12 +106,8 @@ export async function POST(request: NextRequest) {
   // 6. Try to load active form schema from DB, fall back to hardcoded
   let validatedData: z.infer<typeof fallbackSchema>
   try {
-    const dbSchema = await db.query.cmsFormSchemas.findFirst({
-      where: and(
-        eq(cmsFormSchemas.slug, 'agent-registration'),
-        eq(cmsFormSchemas.isActive, true)
-      ),
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: dbSchema } = await (sb as any).from('cms_form_schemas').select('*').eq('slug', 'agent-registration').eq('is_active', true).single()
 
     // For now always use fallback schema — Phase 6 will use DB schema
     const parsed = fallbackSchema.safeParse(body)
@@ -136,24 +133,25 @@ export async function POST(request: NextRequest) {
   const ua = request.headers.get('user-agent') ?? undefined
 
   // 8. Insert agent row
-  const [newAgent] = await db.insert(agents).values({
-    fullName: validatedData.fullName,
-    phoneEncrypted,
-    emailEncrypted: emailEncrypted ?? undefined,
-    isLicensedAgent: validatedData.isLicensedAgent,
-    dealVolume: validatedData.dealVolume,
-    applicationStatus: 'applied',
-    source: validatedData.source,
-    utmSource: validatedData.utmSource,
-    utmMedium: validatedData.utmMedium,
-    utmCampaign: validatedData.utmCampaign,
-    utmContent: validatedData.utmContent,
-    utmTerm: validatedData.utmTerm,
-    ipHash,
-    userAgent: ua,
-  }).returning({ id: agents.id, anonymousId: agents.anonymousId })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: newAgent, error: insertError } = await (sb as any).from('agents').insert({
+    full_name: validatedData.fullName,
+    phone_encrypted: phoneEncrypted,
+    email_encrypted: emailEncrypted ?? null,
+    is_licensed_agent: validatedData.isLicensedAgent,
+    deal_volume: validatedData.dealVolume ?? null,
+    application_status: 'applied',
+    source: validatedData.source ?? null,
+    utm_source: validatedData.utmSource ?? null,
+    utm_medium: validatedData.utmMedium ?? null,
+    utm_campaign: validatedData.utmCampaign ?? null,
+    utm_content: validatedData.utmContent ?? null,
+    utm_term: validatedData.utmTerm ?? null,
+    ip_hash: ipHash,
+    user_agent: ua ?? null,
+  }).select('id, anonymous_id').single()
 
-  if (!newAgent) {
+  if (insertError || !newAgent) {
     return NextResponse.json(
       { ok: false, error: 'Registration failed. Please try again.' },
       { status: 500, headers: cors }
@@ -177,40 +175,17 @@ export async function POST(request: NextRequest) {
 
   // 10. Notify agent managers via email
   try {
-    const managerProfiles = await db.query.profiles.findMany({
-      where: eq(profiles.role, 'agent_manager'),
-      columns: { id: true },
-    })
-
-    // Note: emails for managers come from auth.users — in production
-    // use supabase.auth.admin.listUsers() filtered by manager IDs
-    // For now we log and skip if no Resend key
-    if (managerProfiles.length > 0 && process.env.RESEND_API_KEY) {
-      // Get manager emails via Supabase admin API
-      const { createClient: createSupabaseAdmin } = await import('@supabase/supabase-js')
-      const supabaseAdmin = createSupabaseAdmin(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      )
-      const { data: users } = await supabaseAdmin.auth.admin.listUsers()
-      const managerIds = new Set(managerProfiles.map((p) => p.id))
-      const managerEmails = users?.users
-        .filter((u) => managerIds.has(u.id) && u.email)
-        .map((u) => u.email!) ?? []
-
+    if (process.env.RESEND_API_KEY) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: managerProfiles } = await (sb as any).from('profiles').select('id').eq('role', 'agent_manager')
+      if (managerProfiles?.length > 0) {
+      const { data: users } = await sb.auth.admin.listUsers()
+      const managerIds = new Set((managerProfiles ?? []).map((p: {id: string}) => p.id))
+      const managerEmails = users?.users.filter((u) => managerIds.has(u.id) && u.email).map((u) => u.email!) ?? []
       if (managerEmails.length > 0) {
-        await sendNewAgentNotification(
-          {
-            fullName: validatedData.fullName,
-            isLicensedAgent: validatedData.isLicensedAgent,
-            applicationStatus: 'applied',
-            appliedAt: new Date(),
-          },
-          managerEmails
-        )
+        await sendNewAgentNotification({ fullName: validatedData.fullName, isLicensedAgent: validatedData.isLicensedAgent, applicationStatus: 'applied', appliedAt: new Date() }, managerEmails)
       }
-    }
+    }}
   } catch (err) {
     // Never let notification failure break the registration response
     console.error('[register] Notification failed:', err)
@@ -218,7 +193,7 @@ export async function POST(request: NextRequest) {
 
   // 11. Return ticket — never echo input
   return NextResponse.json(
-    { ok: true, ticket: newAgent.anonymousId },
+    { ok: true, ticket: newAgent.anonymous_id },
     { status: 201, headers: cors }
   )
 }

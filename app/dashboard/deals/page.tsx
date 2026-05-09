@@ -3,9 +3,7 @@ import { requireRole } from '@/lib/auth'
 import { getDeals, getDealStats } from '@/lib/actions/deals'
 import { DealTable } from '@/components/dashboard/deals/deal-table'
 import { CreateDealDialog } from '@/components/dashboard/deals/create-deal-dialog'
-import { db } from '@/db/client'
-import { agents } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { DealStatus } from '@/db/schema'
 
 export const metadata: Metadata = { title: 'Deals' }
@@ -24,11 +22,12 @@ export default async function DealsPage({
   const [result, stats, activeAgents] = await Promise.all([
     getDeals({ status, page, pageSize: 20 }),
     getDealStats(),
-    canCreate ? db.query.agents.findMany({
-      where: eq(agents.applicationStatus, 'active'),
-      columns: { id: true, fullName: true, isLicensedAgent: true },
-      orderBy: (a, { asc }) => [asc(a.fullName)],
-    }) : Promise.resolve([]),
+    canCreate ? (async () => {
+      const sb = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (sb as any).from('agents').select('id, full_name, is_licensed_agent').eq('application_status', 'active').order('full_name')
+      return (data ?? []).map((a: Record<string,unknown>) => ({ id: a.id, fullName: a.full_name, isLicensedAgent: a.is_licensed_agent }))
+    })() : Promise.resolve([]),
   ])
 
   function formatAed(val: string) {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata } from 'next'
 import { requireRole } from '@/lib/auth'
 import { getMyDeals } from '@/lib/actions/portal'
