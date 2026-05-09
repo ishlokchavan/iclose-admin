@@ -21,15 +21,20 @@ export async function getProfile(): Promise<Profile | null> {
   if (!user) return null
 
   try {
-    const supabase = await createClient()
+    // Use service client to bypass RLS — we already verified the user via getUser()
+    const { createServiceClient } = await import('@/lib/supabase/service')
+    const sb = createServiceClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (sb as any)
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
 
-    if (error || !data) return null
+    if (error || !data) {
+      console.error('[auth] getProfile query error:', error?.message)
+      return null
+    }
     // Map snake_case DB fields to camelCase Profile type
     const row = data as Record<string, unknown>
     return {
