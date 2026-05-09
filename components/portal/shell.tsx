@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Briefcase, HandCoins, TrendingUp, UserCircle } from 'lucide-react'
+import { LayoutDashboard, Briefcase, HandCoins, TrendingUp, UserCircle, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { signOut } from '@/lib/actions/auth'
 
 const NAV_ITEMS = [
   { label: 'Overview', href: '/portal', icon: LayoutDashboard, exact: true },
