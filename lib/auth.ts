@@ -107,14 +107,35 @@ export async function requireRole(
   const user = await getUser()
   if (!user) redirect(options.redirectTo ?? '/login')
 
-  const role = (user.app_metadata?.role as Role) ?? 'agent'
+  // Try JWT app_metadata first (fast, no DB call)
+  let role = user.app_metadata?.role as Role | undefined
+
+  // If no role in JWT, fall back to DB profile (happens for new users before app_metadata is set)
+  if (!role) {
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service')
+      const sb = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (sb as any).from('profiles').select('role').eq('id', user.id).single()
+      role = data?.role as Role | undefined
+
+      // Backfill app_metadata so future requests are fast
+      if (role) {
+        await sb.auth.admin.updateUserById(user.id, { app_metadata: { role } })
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Default to agent if still unknown
+  role = role ?? 'agent'
 
   if (!allowedRoles.includes(role)) {
+    // Smart redirect based on actual role
     if (role === 'agent') redirect('/portal')
+    if (['super_admin','agent_manager','content_manager','auditor'].includes(role)) redirect('/dashboard')
     redirect('/unauthorized')
   }
 
-  // Build profile from JWT — no DB hit
   return {
     id: user.id,
     fullName: user.user_metadata?.full_name ?? user.email ?? '',
