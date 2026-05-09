@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { Plus, AlertCircle, X, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,9 +29,9 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
 
   // Financials
   const [amount, setAmount] = useState('')
-  const [commissionMode, setCommissionMode] = useState<'pct' | 'aed'>('pct')
   const [commissionPct, setCommissionPct] = useState('')
   const [commissionAed, setCommissionAed] = useState('')
+  const [lastEdited, setLastEdited] = useState<'pct' | 'aed'>('pct')
   const [vatIncluded, setVatIncluded] = useState<'excluded' | 'included'>('excluded')
 
   const VAT_RATE = 0.05
@@ -39,12 +39,12 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
   const commissionPctNum = parseFloat(commissionPct) / 100 || 0
   const commissionAedNum = parseFloat(commissionAed.replace(/,/g, '')) || 0
 
-  // Auto-calculate the other field
-  const grossCommission = commissionMode === 'pct'
+  // Whichever field was last edited drives the calculation
+  const grossCommission = lastEdited === 'pct'
     ? amountNum * commissionPctNum
     : commissionAedNum
 
-  const derivedPct = commissionMode === 'aed' && amountNum > 0
+  const derivedPct = lastEdited === 'aed' && amountNum > 0
     ? (commissionAedNum / amountNum) * 100
     : commissionPctNum * 100
 
@@ -63,7 +63,7 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
     setCommissionPct('')
     setCommissionAed('')
     setVatIncluded('excluded')
-    setCommissionMode('pct')
+    setLastEdited('pct')
     setError(null)
   }
 
@@ -183,21 +183,7 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
 
                 {/* Commission */}
                 <div className="flex flex-col gap-3 rounded-xl bg-mist p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] font-semibold text-ink">Gross Commission</p>
-                    <div className="flex rounded-lg border border-hairline bg-paper overflow-hidden text-[12px]">
-                      <button type="button"
-                        onClick={() => setCommissionMode('pct')}
-                        className={`px-3 py-1.5 font-medium transition-colors ${commissionMode === 'pct' ? 'bg-ink text-white' : 'text-graphite hover:bg-mist'}`}>
-                        %
-                      </button>
-                      <button type="button"
-                        onClick={() => setCommissionMode('aed')}
-                        className={`px-3 py-1.5 font-medium transition-colors ${commissionMode === 'aed' ? 'bg-ink text-white' : 'text-graphite hover:bg-mist'}`}>
-                        AED
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-[13px] font-semibold text-ink">Gross Commission</p>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1">
@@ -205,8 +191,8 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
                       <Input
                         type="number" min="0" max="100" step="0.01"
                         placeholder="e.g. 2.5"
-                        value={commissionMode === 'pct' ? commissionPct : (derivedPct > 0 ? derivedPct.toFixed(4) : '')}
-                        onChange={(e) => { setCommissionMode('pct'); setCommissionPct(e.target.value) }}
+                        value={lastEdited === 'pct' ? commissionPct : (derivedPct > 0 ? derivedPct.toFixed(4) : '')}
+                        onChange={(e) => { setLastEdited('pct'); setCommissionPct(e.target.value) }}
                         disabled={isPending}
                         className="h-9 text-[13px]"
                       />
@@ -216,8 +202,8 @@ export function CreateDealDialog({ agents }: { agents: Agent[] }) {
                       <Input
                         type="number" min="0" step="0.01"
                         placeholder="Auto-calculated"
-                        value={commissionMode === 'aed' ? commissionAed : (grossCommission > 0 ? grossCommission.toFixed(2) : '')}
-                        onChange={(e) => { setCommissionMode('aed'); setCommissionAed(e.target.value) }}
+                        value={lastEdited === 'aed' ? commissionAed : (grossCommission > 0 ? grossCommission.toFixed(2) : '')}
+                        onChange={(e) => { setLastEdited('aed'); setCommissionAed(e.target.value) }}
                         disabled={isPending}
                         className="h-9 text-[13px]"
                       />
